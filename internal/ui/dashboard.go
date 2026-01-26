@@ -160,6 +160,12 @@ func (m Dashboard) Update(msg tea.Msg) (Component, tea.Cmd) {
 		if key.Matches(msg, dashboardKeys.Quit) {
 			return m, func() tea.Msg { return quitMsg{} }
 		}
+		if key.Matches(msg, dashboardKeys.PrevApp) {
+			return m, func() tea.Msg { return switchAppMsg{delta: -1} }
+		}
+		if key.Matches(msg, dashboardKeys.NextApp) {
+			return m, func() tea.Msg { return switchAppMsg{delta: 1} }
+		}
 		if key.Matches(msg, dashboardKeys.NewApp) {
 			return m, func() tea.Msg { return navigateToInstallMsg{} }
 		}

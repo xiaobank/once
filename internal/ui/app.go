@@ -12,17 +12,13 @@ import (
 )
 
 type KeyMap struct {
-	Accept  key.Binding
-	Quit    key.Binding
-	PrevApp key.Binding
-	NextApp key.Binding
+	Accept key.Binding
+	Quit   key.Binding
 }
 
 var DefaultKeyMap = KeyMap{
-	Accept:  key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "accept")),
-	Quit:    key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl+c", "quit")),
-	PrevApp: key.NewBinding(key.WithKeys("left", "h"), key.WithHelp("←/h", "previous app")),
-	NextApp: key.NewBinding(key.WithKeys("right", "l"), key.WithHelp("→/l", "next app")),
+	Accept: key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "accept")),
+	Quit:   key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl+c", "quit")),
 }
 
 type Component interface {
@@ -37,6 +33,7 @@ type scrapeDoneMsg struct{}
 type navigateToInstallMsg struct{}
 type navigateToDashboardMsg struct{}
 type quitMsg struct{}
+type switchAppMsg struct{ delta int }
 
 type App struct {
 	namespace      *docker.Namespace
@@ -102,14 +99,9 @@ func (m App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.lastSize = msg
 	case tea.KeyMsg:
-		switch {
-		case key.Matches(msg, DefaultKeyMap.Quit):
+		if key.Matches(msg, DefaultKeyMap.Quit) {
 			m.shutdown()
 			return m, tea.Quit
-		case key.Matches(msg, DefaultKeyMap.PrevApp):
-			return m.switchApp(-1)
-		case key.Matches(msg, DefaultKeyMap.NextApp):
-			return m.switchApp(1)
 		}
 	case NamespaceChangedMsg:
 		_ = m.namespace.Refresh(m.watchCtx)
@@ -139,6 +131,8 @@ func (m App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case quitMsg:
 		m.shutdown()
 		return m, tea.Quit
+	case switchAppMsg:
+		return m.switchApp(msg.delta)
 	}
 
 	var cmd tea.Cmd
