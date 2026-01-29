@@ -93,7 +93,7 @@ func (m Install) Update(msg tea.Msg) (Component, tea.Cmd) {
 }
 
 func (m Install) View() string {
-	title := Styles.Title.Width(m.width).Align(lipgloss.Center).Render("Install")
+	titleBox := Styles.TitleBox(m.width, "Install")
 
 	var contentView string
 	if m.state == installStateForm {
@@ -108,9 +108,9 @@ func (m Install) View() string {
 		helpLine = lipgloss.NewStyle().Width(m.width).Align(lipgloss.Center).Render(helpView)
 	}
 
-	titleHeight := lipgloss.Height(title)
+	titleBoxHeight := lipgloss.Height(titleBox)
 	helpHeight := lipgloss.Height(helpLine)
-	middleHeight := m.height - titleHeight - helpHeight
+	middleHeight := m.height - titleBoxHeight - helpHeight
 
 	centeredContent := lipgloss.Place(
 		m.width,
@@ -120,5 +120,5 @@ func (m Install) View() string {
 		contentView,
 	)
 
-	return title + centeredContent + helpLine
+	return titleBox + centeredContent + helpLine
 }

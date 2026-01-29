@@ -140,8 +140,8 @@ func (m Settings) Update(msg tea.Msg) (Component, tea.Cmd) {
 }
 
 func (m Settings) View() string {
-	title := Styles.Title.Width(m.width).Align(lipgloss.Center).Render(m.app.Settings.Name)
-	subtitle := Styles.SubTitle.Width(m.width).Align(lipgloss.Center).Render(m.section.Title())
+	subtitle := Styles.SubTitle.Width(m.width).Align(lipgloss.Center).Render(m.section.Title() + " Settings")
+	titleBox := Styles.TitleBox(m.width, m.app.Settings.Name, subtitle)
 
 	var contentView string
 	if m.state == settingsStateForm {
@@ -156,10 +156,9 @@ func (m Settings) View() string {
 		helpLine = lipgloss.NewStyle().Width(m.width).Align(lipgloss.Center).Render(helpView)
 	}
 
-	titleHeight := lipgloss.Height(title)
-	subtitleHeight := lipgloss.Height(subtitle)
+	titleBoxHeight := lipgloss.Height(titleBox)
 	helpHeight := lipgloss.Height(helpLine)
-	middleHeight := m.height - titleHeight - subtitleHeight - helpHeight
+	middleHeight := m.height - titleBoxHeight - helpHeight
 
 	centeredContent := lipgloss.Place(
 		m.width,
@@ -169,7 +168,7 @@ func (m Settings) View() string {
 		contentView,
 	)
 
-	return title + subtitle + centeredContent + helpLine
+	return titleBox + centeredContent + helpLine
 }
 
 // Private

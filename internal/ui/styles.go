@@ -68,3 +68,22 @@ func (s styles) Focus(base lipgloss.Style, focused bool) lipgloss.Style {
 	}
 	return base
 }
+
+func (s styles) TitleBox(width int, title string, extra ...string) string {
+	innerWidth := width - 2
+	bgStyle := lipgloss.NewStyle().Background(Colors.Primary)
+	titleLine := lipgloss.Place(innerWidth, 1, lipgloss.Center, lipgloss.Center,
+		s.Title.Render(title),
+		lipgloss.WithWhitespaceStyle(bgStyle))
+	lines := []string{titleLine}
+	if len(extra) > 0 {
+		lines = append(lines, "")
+		lines = append(lines, extra...)
+	}
+	content := lipgloss.JoinVertical(lipgloss.Left, lines...)
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(Colors.Border).
+		Width(width).
+		Render(content)
+}
