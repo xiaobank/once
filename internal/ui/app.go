@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"charm.land/bubbles/v2/key"
@@ -104,6 +105,7 @@ func (m App) Init() tea.Cmd {
 		m.currentScreen.Init(),
 		m.watchForChanges(),
 		m.runScrape(),
+		tea.Tick(ChartUpdateInterval, func(time.Time) tea.Msg { return scrapeTickMsg{} }),
 	)
 }
 
@@ -121,9 +123,12 @@ func (m App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.currentScreen, _ = m.currentScreen.Update(msg)
 		return m, m.watchForChanges()
 	case scrapeTickMsg:
-		return m, m.runScrape()
+		return m, tea.Batch(
+			m.runScrape(),
+			tea.Tick(ChartUpdateInterval, func(time.Time) tea.Msg { return scrapeTickMsg{} }),
+		)
 	case scrapeDoneMsg:
-		return m, tea.Tick(5*time.Second, func(time.Time) tea.Msg { return scrapeTickMsg{} })
+		m.currentScreen, _ = m.currentScreen.Update(msg)
 	case navigateToInstallMsg:
 		m.currentScreen = NewInstall(m.namespace)
 		m.currentScreen, _ = m.currentScreen.Update(m.lastSize)
@@ -185,8 +190,17 @@ func (m App) shutdown() {
 
 func (m App) runScrape() tea.Cmd {
 	return func() tea.Msg {
-		m.scraper.Scrape(m.watchCtx)
-		m.dockerScraper.Scrape(m.watchCtx)
+		var wg sync.WaitGroup
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			m.scraper.Scrape(m.watchCtx)
+		}()
+		go func() {
+			defer wg.Done()
+			m.dockerScraper.Scrape(m.watchCtx)
+		}()
+		wg.Wait()
 		return scrapeDoneMsg{}
 	}
 }

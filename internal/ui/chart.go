@@ -3,11 +3,14 @@ package ui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"charm.land/lipgloss/v2"
 )
 
 const ChartHistoryLength = 200
+const ChartUpdateInterval = 2 * time.Second
+const ChartSlidingWindow = int(time.Minute / ChartUpdateInterval)
 
 type UnitType int
 

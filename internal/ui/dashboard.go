@@ -87,7 +87,7 @@ func NewDashboard(ns *docker.Namespace, app *docker.Application, scraper *metric
 			data[i] = float64(s.Success + s.ClientErrors + s.ServerErrors)
 		}
 		slices.Reverse(data)
-		return SlidingSum(data, 12)
+		return SlidingSum(data, ChartSlidingWindow)
 	})
 
 	errorChart := NewChart("Errors/min", chartColors.Red, UnitCount, func() []float64 {
@@ -97,7 +97,7 @@ func NewDashboard(ns *docker.Namespace, app *docker.Application, scraper *metric
 			data[i] = float64(s.ServerErrors)
 		}
 		slices.Reverse(data)
-		return SlidingSum(data, 12)
+		return SlidingSum(data, ChartSlidingWindow)
 	})
 
 	cpuChart := NewChart("CPU", chartColors.Blue, UnitPercent, func() []float64 {
@@ -209,11 +209,13 @@ func (m Dashboard) Update(msg tea.Msg) (Component, tea.Cmd) {
 		m.upgrading = false
 
 	case dashboardTickMsg:
+		cmds = append(cmds, tea.Tick(time.Second, func(time.Time) tea.Msg { return dashboardTickMsg{} }))
+
+	case scrapeDoneMsg:
 		m.allReqChart.Update()
 		m.errorChart.Update()
 		m.cpuChart.Update()
 		m.memoryChart.Update()
-		cmds = append(cmds, tea.Tick(time.Second, func(time.Time) tea.Msg { return dashboardTickMsg{} }))
 
 	case progressBusyTickMsg:
 		if m.upgrading {

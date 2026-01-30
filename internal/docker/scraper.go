@@ -29,13 +29,16 @@ func (s ScraperSettings) withDefaults() ScraperSettings {
 	return s
 }
 
-// Scraper periodically scrapes Docker container stats
+// Scraper collects Docker container stats using persistent streaming connections.
+// Background goroutines maintain streams for each container and update latest stats.
+// Scrape() snapshots the current values without blocking on Docker API calls.
 type Scraper struct {
 	settings  ScraperSettings
 	namespace *Namespace
 
 	mu        sync.RWMutex
 	apps      map[string]*appData
+	streams   map[string]context.CancelFunc
 	lastError error
 }
 
@@ -43,6 +46,12 @@ type appData struct {
 	samples []Sample
 	head    int
 	count   int
+	latest  *liveStats
+}
+
+type liveStats struct {
+	cpuPercent  float64
+	memoryBytes uint64
 }
 
 func NewScraper(ns *Namespace, settings ScraperSettings) *Scraper {
@@ -51,6 +60,7 @@ func NewScraper(ns *Namespace, settings ScraperSettings) *Scraper {
 		settings:  settings,
 		namespace: ns,
 		apps:      make(map[string]*appData),
+		streams:   make(map[string]context.CancelFunc),
 	}
 }
 
@@ -81,6 +91,8 @@ func (s *Scraper) LastError() error {
 	return s.lastError
 }
 
+// Scrape snapshots the latest stats from streaming connections and records samples.
+// It also ensures streams are running for all current containers.
 func (s *Scraper) Scrape(ctx context.Context) {
 	containers, err := s.findAppContainers(ctx)
 	if err != nil {
@@ -88,20 +100,29 @@ func (s *Scraper) Scrape(ctx context.Context) {
 		return
 	}
 
+	s.updateStreams(ctx, containers)
+
 	now := time.Now()
-	for appName, containerID := range containers {
-		stats, err := s.getContainerStats(ctx, containerID)
-		if err != nil {
+	s.mu.Lock()
+	for appName := range containers {
+		data, ok := s.apps[appName]
+		if !ok || data.latest == nil {
 			continue
 		}
 
 		sample := Sample{
 			Timestamp:   now,
-			CPUPercent:  calculateCPUPercent(stats),
-			MemoryBytes: stats.MemoryStats.Usage,
+			CPUPercent:  data.latest.cpuPercent,
+			MemoryBytes: data.latest.memoryBytes,
 		}
-		s.recordSample(appName, sample)
+
+		data.samples[data.head] = sample
+		data.head = (data.head + 1) % len(data.samples)
+		if data.count < len(data.samples) {
+			data.count++
+		}
 	}
+	s.mu.Unlock()
 
 	s.setError(nil)
 }
@@ -135,18 +156,86 @@ func (s *Scraper) findAppContainers(ctx context.Context) (map[string]string, err
 	return result, nil
 }
 
-func (s *Scraper) getContainerStats(ctx context.Context, containerID string) (*container.StatsResponse, error) {
-	resp, err := s.namespace.client.ContainerStats(ctx, containerID, false)
+// Private
+
+func (s *Scraper) updateStreams(ctx context.Context, containers map[string]string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Start streams for new containers
+	for appName, containerID := range containers {
+		if _, exists := s.streams[appName]; exists {
+			continue
+		}
+
+		if s.apps[appName] == nil {
+			s.apps[appName] = &appData{
+				samples: make([]Sample, s.settings.BufferSize),
+			}
+		}
+
+		streamCtx, cancel := context.WithCancel(ctx)
+		s.streams[appName] = cancel
+		go s.runStream(streamCtx, appName, containerID)
+	}
+
+	// Stop streams for removed containers
+	for appName, cancel := range s.streams {
+		if _, exists := containers[appName]; !exists {
+			cancel()
+			delete(s.streams, appName)
+		}
+	}
+}
+
+func (s *Scraper) runStream(ctx context.Context, appName, containerID string) {
+	for {
+		s.streamStats(ctx, appName, containerID)
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(time.Second):
+			// Retry after brief delay if stream disconnected
+		}
+	}
+}
+
+func (s *Scraper) streamStats(ctx context.Context, appName, containerID string) {
+	resp, err := s.namespace.client.ContainerStats(ctx, containerID, true)
 	if err != nil {
-		return nil, err
+		return
 	}
 	defer resp.Body.Close()
 
-	var stats container.StatsResponse
-	if err := json.NewDecoder(resp.Body).Decode(&stats); err != nil {
-		return nil, err
+	decoder := json.NewDecoder(resp.Body)
+	for {
+		var stats container.StatsResponse
+		if err := decoder.Decode(&stats); err != nil {
+			return
+		}
+
+		s.mu.Lock()
+		if data := s.apps[appName]; data != nil {
+			data.latest = &liveStats{
+				cpuPercent:  calculateCPUPercent(&stats),
+				memoryBytes: stats.MemoryStats.Usage,
+			}
+		}
+		s.mu.Unlock()
+
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
 	}
-	return &stats, nil
+}
+
+func (s *Scraper) setError(err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.lastError = err
 }
 
 func (s *Scraper) recordSample(appName string, sample Sample) {
@@ -166,12 +255,6 @@ func (s *Scraper) recordSample(appName string, sample Sample) {
 	if data.count < len(data.samples) {
 		data.count++
 	}
-}
-
-func (s *Scraper) setError(err error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.lastError = err
 }
 
 // Helpers
