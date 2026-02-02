@@ -160,7 +160,19 @@ func (a *Application) ContainerName(ctx context.Context) (string, error) {
 }
 
 func (a *Application) Volume(ctx context.Context) (*ApplicationVolume, error) {
-	return FindOrCreateVolume(ctx, a.namespace, a.Settings.Name)
+	vol, err := FindVolume(ctx, a.namespace, a.Settings.Name)
+	if err == nil {
+		return vol, nil
+	}
+	if !errors.Is(err, ErrVolumeNotFound) {
+		return nil, err
+	}
+
+	skb, err := generateSecretKeyBase()
+	if err != nil {
+		return nil, fmt.Errorf("generating secret key base: %w", err)
+	}
+	return CreateVolume(ctx, a.namespace, a.Settings.Name, ApplicationVolumeSettings{SecretKeyBase: skb})
 }
 
 func (a *Application) Stop(ctx context.Context) error {
@@ -186,20 +198,8 @@ func (a *Application) Update(ctx context.Context, progress DeployProgressCallbac
 }
 
 func (a *Application) Deploy(ctx context.Context, progress DeployProgressCallback) error {
-	reader, err := a.namespace.client.ImagePull(ctx, a.Settings.Image, image.PullOptions{})
-	if err != nil {
-		return fmt.Errorf("pulling image: %w", err)
-	}
-	defer reader.Close()
-
-	if progress != nil {
-		tracker := newPullProgressTracker(progress)
-		if err := tracker.Track(reader); err != nil {
-			return fmt.Errorf("tracking pull progress: %w", err)
-		}
-		progress(DeployProgress{Stage: DeployStageStarting})
-	} else {
-		_, _ = io.Copy(io.Discard, reader)
+	if err := a.pullImage(ctx, progress); err != nil {
+		return err
 	}
 
 	vol, err := a.Volume(ctx)
@@ -207,62 +207,27 @@ func (a *Application) Deploy(ctx context.Context, progress DeployProgressCallbac
 		return fmt.Errorf("getting volume: %w", err)
 	}
 
-	id, err := ContainerRandomID()
+	return a.deployWithVolume(ctx, vol, progress)
+}
+
+func (a *Application) Restore(ctx context.Context, volSettings ApplicationVolumeSettings, volumeData []byte) error {
+	if err := a.pullImage(ctx, nil); err != nil {
+		return err
+	}
+
+	vol, err := CreateVolume(ctx, a.namespace, a.Settings.Name, volSettings)
 	if err != nil {
-		return fmt.Errorf("generating container id: %w", err)
+		return fmt.Errorf("creating volume: %w", err)
 	}
 
-	containerName := fmt.Sprintf("%s-app-%s-%s", a.namespace.name, a.Settings.Name, id)
-
-	env := a.Settings.BuildEnv(vol.SecretKeyBase())
-
-	resp, err := a.namespace.client.ContainerCreate(ctx,
-		a.containerConfig(env),
-		&container.HostConfig{
-			RestartPolicy: container.RestartPolicy{Name: container.RestartPolicyAlways},
-			LogConfig:     ContainerLogConfig(),
-			Mounts: []mount.Mount{
-				{
-					Type:   mount.TypeVolume,
-					Source: vol.Name(),
-					Target: "/rails/storage",
-				},
-			},
-		},
-		&network.NetworkingConfig{
-			EndpointsConfig: map[string]*network.EndpointSettings{
-				a.namespace.name: {},
-			},
-		},
-		nil,
-		containerName,
-	)
-	if err != nil {
-		return fmt.Errorf("creating container: %w", err)
+	if err := a.populateVolume(ctx, vol, volumeData); err != nil {
+		vol.Destroy(ctx)
+		return fmt.Errorf("populating volume: %w", err)
 	}
 
-	if err := a.namespace.client.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
-		return fmt.Errorf("starting container: %w", err)
-	}
-
-	shortContainerID := resp.ID[:12]
-
-	if err := a.namespace.Proxy().Deploy(ctx, DeployOptions{
-		AppName: a.Settings.Name,
-		Target:  shortContainerID,
-		Host:    a.Settings.Host,
-		TLS:     a.Settings.TLSEnabled(),
-	}); err != nil {
-		a.namespace.client.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true})
-		return fmt.Errorf("registering with proxy: %w", err)
-	}
-
-	if err := a.removeContainersExcept(ctx, containerName); err != nil {
-		return fmt.Errorf("removing old containers: %w", err)
-	}
-
-	if progress != nil {
-		progress(DeployProgress{Stage: DeployStageFinished})
+	if err := a.deployWithVolume(ctx, vol, nil); err != nil {
+		vol.Destroy(ctx)
+		return err
 	}
 
 	return nil
@@ -343,6 +308,132 @@ func (a *Application) Destroy(ctx context.Context, destroyVolumes bool) error {
 }
 
 // Private
+
+func (a *Application) pullImage(ctx context.Context, progress DeployProgressCallback) error {
+	reader, err := a.namespace.client.ImagePull(ctx, a.Settings.Image, image.PullOptions{})
+	if err != nil {
+		return fmt.Errorf("pulling image: %w", err)
+	}
+	defer reader.Close()
+
+	if progress != nil {
+		tracker := newPullProgressTracker(progress)
+		if err := tracker.Track(reader); err != nil {
+			return fmt.Errorf("tracking pull progress: %w", err)
+		}
+	} else {
+		_, _ = io.Copy(io.Discard, reader)
+	}
+
+	return nil
+}
+
+func (a *Application) deployWithVolume(ctx context.Context, vol *ApplicationVolume, progress DeployProgressCallback) error {
+	if progress != nil {
+		progress(DeployProgress{Stage: DeployStageStarting})
+	}
+
+	id, err := ContainerRandomID()
+	if err != nil {
+		return fmt.Errorf("generating container id: %w", err)
+	}
+
+	containerName := fmt.Sprintf("%s-app-%s-%s", a.namespace.name, a.Settings.Name, id)
+
+	env := a.Settings.BuildEnv(vol.SecretKeyBase())
+
+	resp, err := a.namespace.client.ContainerCreate(ctx,
+		a.containerConfig(env),
+		&container.HostConfig{
+			RestartPolicy: container.RestartPolicy{Name: container.RestartPolicyAlways},
+			LogConfig:     ContainerLogConfig(),
+			Mounts: []mount.Mount{
+				{
+					Type:   mount.TypeVolume,
+					Source: vol.Name(),
+					Target: "/rails/storage",
+				},
+			},
+		},
+		&network.NetworkingConfig{
+			EndpointsConfig: map[string]*network.EndpointSettings{
+				a.namespace.name: {},
+			},
+		},
+		nil,
+		containerName,
+	)
+	if err != nil {
+		return fmt.Errorf("creating container: %w", err)
+	}
+
+	if err := a.namespace.client.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+		return fmt.Errorf("starting container: %w", err)
+	}
+
+	shortContainerID := resp.ID[:12]
+
+	if err := a.namespace.Proxy().Deploy(ctx, DeployOptions{
+		AppName: a.Settings.Name,
+		Target:  shortContainerID,
+		Host:    a.Settings.Host,
+		TLS:     a.Settings.TLSEnabled(),
+	}); err != nil {
+		a.namespace.client.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true})
+		return fmt.Errorf("registering with proxy: %w", err)
+	}
+
+	if err := a.removeContainersExcept(ctx, containerName); err != nil {
+		return fmt.Errorf("removing old containers: %w", err)
+	}
+
+	if progress != nil {
+		progress(DeployProgress{Stage: DeployStageFinished})
+	}
+
+	return nil
+}
+
+func (a *Application) populateVolume(ctx context.Context, vol *ApplicationVolume, data []byte) error {
+	containerName := fmt.Sprintf("%s-restore-temp", a.namespace.name)
+
+	resp, err := a.namespace.client.ContainerCreate(ctx,
+		&container.Config{
+			Image:      a.Settings.Image,
+			Entrypoint: []string{},
+			Cmd:        []string{"sleep", "infinity"},
+		},
+		&container.HostConfig{
+			Mounts: []mount.Mount{
+				{
+					Type:   mount.TypeVolume,
+					Source: vol.Name(),
+					Target: "/data",
+				},
+			},
+		},
+		nil,
+		nil,
+		containerName,
+	)
+	if err != nil {
+		return fmt.Errorf("creating temp container: %w", err)
+	}
+
+	defer a.namespace.client.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true})
+
+	if err := a.namespace.client.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+		return fmt.Errorf("starting temp container: %w", err)
+	}
+
+	if len(data) > 0 {
+		if err := a.namespace.client.CopyToContainer(ctx, resp.ID, "/", bytes.NewReader(data), container.CopyToContainerOptions{}); err != nil {
+			return fmt.Errorf("copying data to volume: %w", err)
+		}
+	}
+
+	return nil
+}
 
 func (a *Application) runHookScript(ctx context.Context, containerName, name string) error {
 	cmd := []string{"/scripts/" + name}

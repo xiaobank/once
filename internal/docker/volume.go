@@ -5,11 +5,14 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types/volume"
 )
+
+var ErrVolumeNotFound = errors.New("volume not found")
 
 type ApplicationVolumeSettings struct {
 	SecretKeyBase string `json:"skb"`
@@ -49,37 +52,32 @@ func (v *ApplicationVolume) Destroy(ctx context.Context) error {
 	return nil
 }
 
-func FindOrCreateVolume(ctx context.Context, ns *Namespace, name string) (*ApplicationVolume, error) {
+func FindVolume(ctx context.Context, ns *Namespace, name string) (*ApplicationVolume, error) {
 	volumeName := fmt.Sprintf("%s-app-%s", ns.name, name)
 
 	vol, err := ns.client.VolumeInspect(ctx, volumeName)
-	if err == nil {
-		var settings ApplicationVolumeSettings
-		if label := vol.Labels["amar"]; label != "" {
-			settings, err = UnmarshalApplicationVolumeSettings(label)
-			if err != nil {
-				return nil, fmt.Errorf("parsing volume settings: %w", err)
-			}
+	if err != nil {
+		if errdefs.IsNotFound(err) {
+			return nil, ErrVolumeNotFound
 		}
-		return &ApplicationVolume{
-			namespace: ns,
-			name:      volumeName,
-			Settings:  settings,
-		}, nil
-	}
-
-	if !errdefs.IsNotFound(err) {
 		return nil, fmt.Errorf("inspecting volume: %w", err)
 	}
 
-	skb, err := generateSecretKeyBase()
-	if err != nil {
-		return nil, fmt.Errorf("generating secret key base: %w", err)
+	label := vol.Labels["amar"]
+	if label == "" {
+		return nil, fmt.Errorf("volume %s exists but has no amar label", volumeName)
 	}
 
-	settings := ApplicationVolumeSettings{SecretKeyBase: skb}
+	settings, err := UnmarshalApplicationVolumeSettings(label)
+	if err != nil {
+		return nil, fmt.Errorf("parsing volume settings: %w", err)
+	}
 
-	return CreateVolume(ctx, ns, name, settings)
+	return &ApplicationVolume{
+		namespace: ns,
+		name:      volumeName,
+		Settings:  settings,
+	}, nil
 }
 
 func CreateVolume(ctx context.Context, ns *Namespace, name string, settings ApplicationVolumeSettings) (*ApplicationVolume, error) {

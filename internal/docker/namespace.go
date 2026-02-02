@@ -12,8 +12,6 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 )
@@ -171,20 +169,9 @@ func (n *Namespace) Restore(ctx context.Context, r io.Reader) (*Application, err
 		return nil, ErrApplicationExists
 	}
 
-	vol, err := CreateVolume(ctx, n, appSettings.Name, volSettings)
-	if err != nil {
-		return nil, fmt.Errorf("creating volume: %w", err)
-	}
-
-	if err := n.populateVolume(ctx, vol, appSettings.Image, volumeData); err != nil {
-		vol.Destroy(ctx)
-		return nil, fmt.Errorf("populating volume: %w", err)
-	}
-
 	app := n.AddApplication(appSettings)
-	if err := app.Deploy(ctx, nil); err != nil {
-		vol.Destroy(ctx)
-		return nil, fmt.Errorf("deploying application: %w", err)
+	if err := app.Restore(ctx, volSettings, volumeData); err != nil {
+		return nil, err
 	}
 
 	return app, nil
@@ -342,52 +329,4 @@ func (n *Namespace) parseBackup(r io.Reader) (ApplicationSettings, ApplicationVo
 	}
 
 	return appSettings, volSettings, volumeData.Bytes(), nil
-}
-
-func (n *Namespace) populateVolume(ctx context.Context, vol *ApplicationVolume, imageName string, data []byte) error {
-	reader, err := n.client.ImagePull(ctx, imageName, image.PullOptions{})
-	if err != nil {
-		return fmt.Errorf("pulling image: %w", err)
-	}
-	defer reader.Close()
-	_, _ = io.Copy(io.Discard, reader)
-
-	containerName := fmt.Sprintf("%s-restore-temp", n.name)
-
-	resp, err := n.client.ContainerCreate(ctx,
-		&container.Config{
-			Image:      imageName,
-			Entrypoint: []string{},
-			Cmd:        []string{"sleep", "infinity"},
-		},
-		&container.HostConfig{
-			Mounts: []mount.Mount{
-				{
-					Type:   mount.TypeVolume,
-					Source: vol.Name(),
-					Target: "/data",
-				},
-			},
-		},
-		nil,
-		nil,
-		containerName,
-	)
-	if err != nil {
-		return fmt.Errorf("creating temp container: %w", err)
-	}
-
-	defer n.client.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true})
-
-	if err := n.client.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
-		return fmt.Errorf("starting temp container: %w", err)
-	}
-
-	if len(data) > 0 {
-		if err := n.client.CopyToContainer(ctx, resp.ID, "/", bytes.NewReader(data), container.CopyToContainerOptions{}); err != nil {
-			return fmt.Errorf("copying data to volume: %w", err)
-		}
-	}
-
-	return nil
 }

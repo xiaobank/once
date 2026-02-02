@@ -99,11 +99,11 @@ func TestApplicationVolume(t *testing.T) {
 	ns, err := docker.NewNamespace("amar-volume-label-test")
 	require.NoError(t, err)
 
-	vol1, err := docker.FindOrCreateVolume(ctx, ns, "testapp")
+	vol1, err := docker.CreateVolume(ctx, ns, "testapp", docker.ApplicationVolumeSettings{SecretKeyBase: "test-secret"})
 	require.NoError(t, err)
-	assert.NotEmpty(t, vol1.SecretKeyBase())
+	assert.Equal(t, "test-secret", vol1.SecretKeyBase())
 
-	vol2, err := docker.FindOrCreateVolume(ctx, ns, "testapp")
+	vol2, err := docker.FindVolume(ctx, ns, "testapp")
 	require.NoError(t, err)
 	assert.Equal(t, vol1.SecretKeyBase(), vol2.SecretKeyBase())
 
