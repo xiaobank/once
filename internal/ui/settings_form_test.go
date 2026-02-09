@@ -18,10 +18,10 @@ func TestSettingsFormApplication_InitialState_NonLocalhost(t *testing.T) {
 	}
 	form := NewSettingsFormApplication(settings)
 
-	assert.Equal(t, applicationFieldImage, form.focused)
-	assert.Equal(t, "nginx:latest", form.imageInput.Value())
-	assert.Equal(t, "app.example.com", form.hostnameInput.Value())
-	assert.True(t, form.settings.TLSEnabled())
+	assert.Equal(t, 0, form.form.Focused())
+	assert.Equal(t, "nginx:latest", form.form.TextField(appImageField).Value())
+	assert.Equal(t, "app.example.com", form.form.TextField(appHostnameField).Value())
+	assert.True(t, form.form.CheckboxField(appTLSField).Checked())
 }
 
 func TestSettingsFormApplication_InitialState_Localhost(t *testing.T) {
@@ -32,77 +32,76 @@ func TestSettingsFormApplication_InitialState_Localhost(t *testing.T) {
 	}
 	form := NewSettingsFormApplication(settings)
 
-	assert.Equal(t, "chat.localhost", form.hostnameInput.Value())
-	assert.False(t, form.settings.TLSEnabled(), "TLS should be disabled for localhost even when DisableTLS is false")
+	assert.Equal(t, "chat.localhost", form.form.TextField(appHostnameField).Value())
+	assert.True(t, form.form.CheckboxField(appTLSField).Checked(), "checkbox is checked (DisableTLS=false)")
 }
 
 func TestSettingsFormApplication_TabNavigation(t *testing.T) {
 	form := NewSettingsFormApplication(docker.ApplicationSettings{Host: "app.example.com"})
-	assert.Equal(t, applicationFieldImage, form.focused)
+	assert.Equal(t, 0, form.form.Focused())
 
 	form = applicationPressTab(form)
-	assert.Equal(t, applicationFieldHostname, form.focused)
+	assert.Equal(t, 1, form.form.Focused(), "hostname")
 
 	form = applicationPressTab(form)
-	assert.Equal(t, applicationFieldTLS, form.focused)
+	assert.Equal(t, 2, form.form.Focused(), "tls")
 
 	form = applicationPressTab(form)
-	assert.Equal(t, applicationFieldDoneButton, form.focused)
+	assert.Equal(t, 3, form.form.Focused(), "done button")
 
 	form = applicationPressTab(form)
-	assert.Equal(t, applicationFieldCancelButton, form.focused)
+	assert.Equal(t, 4, form.form.Focused(), "cancel button")
 
 	form = applicationPressTab(form)
-	assert.Equal(t, applicationFieldImage, form.focused)
+	assert.Equal(t, 0, form.form.Focused(), "wraps to image")
 }
 
 func TestSettingsFormApplication_ShiftTabNavigation(t *testing.T) {
 	form := NewSettingsFormApplication(docker.ApplicationSettings{Host: "app.example.com"})
 
 	form = applicationPressShiftTab(form)
-	assert.Equal(t, applicationFieldCancelButton, form.focused)
+	assert.Equal(t, 4, form.form.Focused(), "cancel button")
 
 	form = applicationPressShiftTab(form)
-	assert.Equal(t, applicationFieldDoneButton, form.focused)
+	assert.Equal(t, 3, form.form.Focused(), "done button")
 }
 
 func TestSettingsFormApplication_SpaceTogglesTLS(t *testing.T) {
 	form := NewSettingsFormApplication(docker.ApplicationSettings{Host: "app.example.com"})
-	assert.True(t, form.settings.TLSEnabled())
+	assert.True(t, form.form.CheckboxField(appTLSField).Checked())
 
 	form = applicationPressTab(form)
 	form = applicationPressTab(form)
-	assert.Equal(t, applicationFieldTLS, form.focused)
+	assert.Equal(t, 2, form.form.Focused())
 
 	form = applicationPressSpace(form)
-	assert.False(t, form.settings.TLSEnabled())
+	assert.False(t, form.form.CheckboxField(appTLSField).Checked())
 
 	form = applicationPressSpace(form)
-	assert.True(t, form.settings.TLSEnabled())
+	assert.True(t, form.form.CheckboxField(appTLSField).Checked())
 }
 
 func TestSettingsFormApplication_SpaceDoesNotToggleTLSForLocalhost(t *testing.T) {
 	form := NewSettingsFormApplication(docker.ApplicationSettings{Host: "chat.localhost"})
-	assert.False(t, form.settings.TLSEnabled())
 
 	form = applicationPressTab(form)
 	form = applicationPressTab(form)
-	assert.Equal(t, applicationFieldTLS, form.focused)
+	assert.Equal(t, 2, form.form.Focused())
 
 	form = applicationPressSpace(form)
-	assert.False(t, form.settings.TLSEnabled(), "TLS should remain disabled for localhost")
+	assert.True(t, form.form.CheckboxField(appTLSField).Checked(), "toggle ignored for localhost")
 }
 
 func TestSettingsFormApplication_TLSShowsDisabledForLocalhost(t *testing.T) {
 	form := NewSettingsFormApplication(docker.ApplicationSettings{Host: "app.example.com"})
-	assert.True(t, form.settings.TLSEnabled())
+	assert.Equal(t, "[x] Enabled", form.form.CheckboxField(appTLSField).View())
 
 	form = applicationPressTab(form)
 	form = applicationTypeText(form, ".localhost")
-	assert.False(t, form.settings.TLSEnabled(), "TLS should show as disabled for localhost")
+	assert.Equal(t, "Not available for localhost", form.form.CheckboxField(appTLSField).View())
 
 	form = applicationClearAndType(form, "app.example.com")
-	assert.True(t, form.settings.TLSEnabled(), "TLS preference should be preserved")
+	assert.Equal(t, "[x] Enabled", form.form.CheckboxField(appTLSField).View())
 }
 
 func TestSettingsFormApplication_Submit(t *testing.T) {
@@ -112,11 +111,12 @@ func TestSettingsFormApplication_Submit(t *testing.T) {
 		Host:  "app.example.com",
 	})
 
-	form.focused = applicationFieldDoneButton
-	section, cmd := form.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
-	form = section.(SettingsFormApplication)
-	require.NotNil(t, cmd)
+	for range 3 {
+		form = applicationPressTab(form)
+	}
 
+	_, cmd := form.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	require.NotNil(t, cmd)
 	msg := cmd()
 	submitMsg, ok := msg.(SettingsSectionSubmitMsg)
 	require.True(t, ok, "expected SettingsSectionSubmitMsg, got %T", msg)
@@ -129,10 +129,12 @@ func TestSettingsFormApplication_Submit(t *testing.T) {
 func TestSettingsFormApplication_Cancel(t *testing.T) {
 	form := NewSettingsFormApplication(docker.ApplicationSettings{Host: "app.example.com"})
 
-	form.focused = applicationFieldCancelButton
+	for range 4 {
+		form = applicationPressTab(form)
+	}
+
 	_, cmd := form.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	require.NotNil(t, cmd)
-
 	msg := cmd()
 	_, ok := msg.(SettingsSectionCancelMsg)
 	assert.True(t, ok, "expected SettingsSectionCancelMsg, got %T", msg)
@@ -150,38 +152,38 @@ func TestSettingsFormEmail_InitialState(t *testing.T) {
 	}
 	form := NewSettingsFormEmail(settings)
 
-	assert.Equal(t, emailFieldServer, form.focused)
-	assert.Equal(t, "smtp.example.com", form.serverInput.Value())
-	assert.Equal(t, "587", form.portInput.Value())
-	assert.Equal(t, "user@example.com", form.usernameInput.Value())
-	assert.Equal(t, "secret", form.passwordInput.Value())
-	assert.Equal(t, "noreply@example.com", form.fromInput.Value())
+	assert.Equal(t, 0, form.form.Focused())
+	assert.Equal(t, "smtp.example.com", form.form.TextField(emailServerField).Value())
+	assert.Equal(t, "587", form.form.TextField(emailPortField).Value())
+	assert.Equal(t, "user@example.com", form.form.TextField(emailUsernameField).Value())
+	assert.Equal(t, "secret", form.form.TextField(emailPasswordField).Value())
+	assert.Equal(t, "noreply@example.com", form.form.TextField(emailFromField).Value())
 }
 
 func TestSettingsFormEmail_TabNavigation(t *testing.T) {
 	form := NewSettingsFormEmail(docker.ApplicationSettings{})
-	assert.Equal(t, emailFieldServer, form.focused)
+	assert.Equal(t, 0, form.form.Focused())
 
 	form = emailPressTab(form)
-	assert.Equal(t, emailFieldPort, form.focused)
+	assert.Equal(t, 1, form.form.Focused(), "port")
 
 	form = emailPressTab(form)
-	assert.Equal(t, emailFieldUsername, form.focused)
+	assert.Equal(t, 2, form.form.Focused(), "username")
 
 	form = emailPressTab(form)
-	assert.Equal(t, emailFieldPassword, form.focused)
+	assert.Equal(t, 3, form.form.Focused(), "password")
 
 	form = emailPressTab(form)
-	assert.Equal(t, emailFieldFrom, form.focused)
+	assert.Equal(t, 4, form.form.Focused(), "from")
 
 	form = emailPressTab(form)
-	assert.Equal(t, emailFieldDoneButton, form.focused)
+	assert.Equal(t, 5, form.form.Focused(), "done button")
 
 	form = emailPressTab(form)
-	assert.Equal(t, emailFieldCancelButton, form.focused)
+	assert.Equal(t, 6, form.form.Focused(), "cancel button")
 
 	form = emailPressTab(form)
-	assert.Equal(t, emailFieldServer, form.focused)
+	assert.Equal(t, 0, form.form.Focused(), "wraps to server")
 }
 
 func TestSettingsFormEmail_Submit(t *testing.T) {
@@ -194,11 +196,12 @@ func TestSettingsFormEmail_Submit(t *testing.T) {
 	}
 	form := NewSettingsFormEmail(settings)
 
-	form.focused = emailFieldDoneButton
-	section, cmd := form.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
-	form = section.(SettingsFormEmail)
-	require.NotNil(t, cmd)
+	for range 5 {
+		form = emailPressTab(form)
+	}
 
+	_, cmd := form.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	require.NotNil(t, cmd)
 	msg := cmd()
 	submitMsg, ok := msg.(SettingsSectionSubmitMsg)
 	require.True(t, ok, "expected SettingsSectionSubmitMsg, got %T", msg)
@@ -210,10 +213,12 @@ func TestSettingsFormEmail_Submit(t *testing.T) {
 func TestSettingsFormEmail_Cancel(t *testing.T) {
 	form := NewSettingsFormEmail(docker.ApplicationSettings{})
 
-	form.focused = emailFieldCancelButton
+	for range 6 {
+		form = emailPressTab(form)
+	}
+
 	_, cmd := form.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	require.NotNil(t, cmd)
-
 	msg := cmd()
 	_, ok := msg.(SettingsSectionCancelMsg)
 	assert.True(t, ok, "expected SettingsSectionCancelMsg, got %T", msg)
@@ -228,34 +233,34 @@ func TestSettingsFormResources_InitialState(t *testing.T) {
 	}
 	form := NewSettingsFormResources(settings)
 
-	assert.Equal(t, resourcesFieldCPU, form.focused)
-	assert.Equal(t, "2", form.cpuInput.Value())
-	assert.Equal(t, "512", form.memoryInput.Value())
+	assert.Equal(t, 0, form.form.Focused())
+	assert.Equal(t, "2", form.form.TextField(resourcesCPUField).Value())
+	assert.Equal(t, "512", form.form.TextField(resourcesMemoryField).Value())
 }
 
 func TestSettingsFormResources_InitialState_ZeroValues(t *testing.T) {
 	form := NewSettingsFormResources(docker.ApplicationSettings{})
 
-	assert.Equal(t, resourcesFieldCPU, form.focused)
-	assert.Equal(t, "", form.cpuInput.Value())
-	assert.Equal(t, "", form.memoryInput.Value())
+	assert.Equal(t, 0, form.form.Focused())
+	assert.Equal(t, "", form.form.TextField(resourcesCPUField).Value())
+	assert.Equal(t, "", form.form.TextField(resourcesMemoryField).Value())
 }
 
 func TestSettingsFormResources_TabNavigation(t *testing.T) {
 	form := NewSettingsFormResources(docker.ApplicationSettings{})
-	assert.Equal(t, resourcesFieldCPU, form.focused)
+	assert.Equal(t, 0, form.form.Focused())
 
 	form = resourcesPressTab(form)
-	assert.Equal(t, resourcesFieldMemory, form.focused)
+	assert.Equal(t, 1, form.form.Focused(), "memory")
 
 	form = resourcesPressTab(form)
-	assert.Equal(t, resourcesFieldDoneButton, form.focused)
+	assert.Equal(t, 2, form.form.Focused(), "done button")
 
 	form = resourcesPressTab(form)
-	assert.Equal(t, resourcesFieldCancelButton, form.focused)
+	assert.Equal(t, 3, form.form.Focused(), "cancel button")
 
 	form = resourcesPressTab(form)
-	assert.Equal(t, resourcesFieldCPU, form.focused)
+	assert.Equal(t, 0, form.form.Focused(), "wraps to cpu")
 }
 
 func TestSettingsFormResources_Submit(t *testing.T) {
@@ -264,12 +269,10 @@ func TestSettingsFormResources_Submit(t *testing.T) {
 	form = resourcesTypeText(form, "2")
 	form = resourcesPressTab(form)
 	form = resourcesTypeText(form, "1024")
+	form = resourcesPressTab(form)
 
-	form.focused = resourcesFieldDoneButton
-	section, cmd := form.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
-	form = section.(SettingsFormResources)
+	_, cmd := form.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	require.NotNil(t, cmd)
-
 	msg := cmd()
 	submitMsg, ok := msg.(SettingsSectionSubmitMsg)
 	require.True(t, ok, "expected SettingsSectionSubmitMsg, got %T", msg)
@@ -281,10 +284,11 @@ func TestSettingsFormResources_Submit(t *testing.T) {
 func TestSettingsFormResources_SubmitBlank(t *testing.T) {
 	form := NewSettingsFormResources(docker.ApplicationSettings{})
 
-	form.focused = resourcesFieldDoneButton
+	form = resourcesPressTab(form)
+	form = resourcesPressTab(form)
+
 	_, cmd := form.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	require.NotNil(t, cmd)
-
 	msg := cmd()
 	submitMsg, ok := msg.(SettingsSectionSubmitMsg)
 	require.True(t, ok, "expected SettingsSectionSubmitMsg, got %T", msg)
@@ -295,10 +299,12 @@ func TestSettingsFormResources_SubmitBlank(t *testing.T) {
 func TestSettingsFormResources_Cancel(t *testing.T) {
 	form := NewSettingsFormResources(docker.ApplicationSettings{})
 
-	form.focused = resourcesFieldCancelButton
+	for range 3 {
+		form = resourcesPressTab(form)
+	}
+
 	_, cmd := form.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	require.NotNil(t, cmd)
-
 	msg := cmd()
 	_, ok := msg.(SettingsSectionCancelMsg)
 	assert.True(t, ok, "expected SettingsSectionCancelMsg, got %T", msg)
@@ -315,8 +321,7 @@ func applicationTypeText(form SettingsFormApplication, text string) SettingsForm
 }
 
 func applicationClearAndType(form SettingsFormApplication, text string) SettingsFormApplication {
-	form.hostnameInput.SetValue("")
-	form.settings.Host = ""
+	form.form.TextField(appHostnameField).SetValue("")
 	return applicationTypeText(form, text)
 }
 

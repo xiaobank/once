@@ -11,25 +11,20 @@ import (
 func TestInstallForm_FillAndSubmit(t *testing.T) {
 	form := NewInstallForm()
 
-	// Type into image ref field
-	form = typeText(form, "nginx:latest")
+	form = installTypeText(form, "nginx:latest")
 	assert.Equal(t, "nginx:latest", form.ImageRef())
 
-	// Press enter to move to hostname field
-	form = pressEnter(form)
-	assert.Equal(t, fieldHostname, form.focused)
+	form = installPressEnter(form)
+	assert.Equal(t, 1, form.form.Focused())
 
-	// Type into hostname field
-	form = typeText(form, "myapp.example.com")
+	form = installTypeText(form, "myapp.example.com")
 	assert.Equal(t, "myapp.example.com", form.Hostname())
 
-	// Press enter to move to install button
-	form = pressEnter(form)
-	assert.Equal(t, fieldInstallButton, form.focused)
+	form = installPressEnter(form)
+	assert.Equal(t, 2, form.form.Focused(), "submit button")
 
-	// Press enter to submit
 	form, cmd := form.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
-	require.NotNil(t, cmd, "expected a command from submit")
+	require.NotNil(t, cmd)
 
 	msg := cmd()
 	submitMsg, ok := msg.(InstallFormSubmitMsg)
@@ -40,41 +35,39 @@ func TestInstallForm_FillAndSubmit(t *testing.T) {
 
 func TestInstallForm_TabNavigation(t *testing.T) {
 	form := NewInstallForm()
-	assert.Equal(t, fieldImageRef, form.focused)
+	assert.Equal(t, 0, form.form.Focused())
 
-	// Tab through all fields
-	form = pressTab(form)
-	assert.Equal(t, fieldHostname, form.focused)
+	form = installPressTab(form)
+	assert.Equal(t, 1, form.form.Focused())
 
-	form = pressTab(form)
-	assert.Equal(t, fieldInstallButton, form.focused)
+	form = installPressTab(form)
+	assert.Equal(t, 2, form.form.Focused(), "submit button")
 
-	form = pressTab(form)
-	assert.Equal(t, fieldCancelButton, form.focused)
+	form = installPressTab(form)
+	assert.Equal(t, 3, form.form.Focused(), "cancel button")
 
-	// Tab wraps around
-	form = pressTab(form)
-	assert.Equal(t, fieldImageRef, form.focused)
+	form = installPressTab(form)
+	assert.Equal(t, 0, form.form.Focused(), "wraps to first field")
 }
 
 func TestInstallForm_ShiftTabNavigation(t *testing.T) {
 	form := NewInstallForm()
 
-	// Shift+Tab goes backwards, wrapping to cancel button
-	form = pressShiftTab(form)
-	assert.Equal(t, fieldCancelButton, form.focused)
+	form = installPressShiftTab(form)
+	assert.Equal(t, 3, form.form.Focused(), "cancel button")
 
-	form = pressShiftTab(form)
-	assert.Equal(t, fieldInstallButton, form.focused)
+	form = installPressShiftTab(form)
+	assert.Equal(t, 2, form.form.Focused(), "submit button")
 }
 
 func TestInstallForm_CancelButton(t *testing.T) {
 	form := NewInstallForm()
 
-	// Navigate to cancel button
-	form.focused = fieldCancelButton
+	for range 3 {
+		form = installPressTab(form)
+	}
+	assert.Equal(t, 3, form.form.Focused(), "cancel button")
 
-	// Press enter
 	_, cmd := form.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	require.NotNil(t, cmd)
 
@@ -85,24 +78,24 @@ func TestInstallForm_CancelButton(t *testing.T) {
 
 // Helpers
 
-func typeText(form InstallForm, text string) InstallForm {
+func installTypeText(form InstallForm, text string) InstallForm {
 	for _, r := range text {
 		form, _ = form.Update(tea.KeyPressMsg{Code: r, Text: string(r)})
 	}
 	return form
 }
 
-func pressEnter(form InstallForm) InstallForm {
+func installPressEnter(form InstallForm) InstallForm {
 	form, _ = form.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	return form
 }
 
-func pressTab(form InstallForm) InstallForm {
+func installPressTab(form InstallForm) InstallForm {
 	form, _ = form.Update(tea.KeyPressMsg{Code: tea.KeyTab})
 	return form
 }
 
-func pressShiftTab(form InstallForm) InstallForm {
+func installPressShiftTab(form InstallForm) InstallForm {
 	form, _ = form.Update(tea.KeyPressMsg{Code: tea.KeyTab, Mod: tea.ModShift})
 	return form
 }

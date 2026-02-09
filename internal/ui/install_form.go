@@ -1,22 +1,14 @@
 package ui
 
 import (
-	"charm.land/bubbles/v2/key"
-	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 
 	"github.com/basecamp/once/internal/docker"
 )
 
-type installFormField int
-
 const (
-	fieldImageRef installFormField = iota
-	fieldHostname
-	fieldInstallButton
-	fieldCancelButton
-	fieldCount
+	installImageRefField = iota
+	installHostnameField
 )
 
 type InstallFormSubmitMsg struct {
@@ -27,29 +19,16 @@ type InstallFormSubmitMsg struct {
 type InstallFormCancelMsg struct{}
 
 type InstallForm struct {
-	width, height int
-	focused       installFormField
-	imageRefInput textinput.Model
-	hostnameInput textinput.Model
-	lastAppName   string
+	form        Form
+	lastAppName string
 }
 
 func NewInstallForm() InstallForm {
-	imageRef := textinput.New()
-	imageRef.Placeholder = "user/repo:tag"
-	imageRef.Prompt = ""
-	imageRef.CharLimit = 256
-	imageRef.Focus()
-
-	hostname := textinput.New()
-	hostname.Placeholder = "app.example.com"
-	hostname.Prompt = ""
-	hostname.CharLimit = 256
-
 	return InstallForm{
-		focused:       fieldImageRef,
-		imageRefInput: imageRef,
-		hostnameInput: hostname,
+		form: NewForm("Install",
+			FormItem{Label: "Image", Field: NewTextField("user/repo:tag")},
+			FormItem{Label: "Hostname", Field: NewTextField("app.example.com")},
+		),
 	}
 }
 
@@ -58,136 +37,51 @@ func (m InstallForm) Init() tea.Cmd {
 }
 
 func (m InstallForm) Update(msg tea.Msg) (InstallForm, tea.Cmd) {
-	var cmds []tea.Cmd
+	prev := m.form.Focused()
 
-	switch msg := msg.(type) {
-	case tea.WindowSizeMsg:
-		m.width, m.height = msg.Width, msg.Height
-		inputWidth := min(m.width-4, 60)
-		m.imageRefInput.SetWidth(inputWidth)
-		m.hostnameInput.SetWidth(inputWidth)
+	var (
+		action FormAction
+		cmd    tea.Cmd
+	)
+	m.form, action, cmd = m.form.Update(msg)
 
-	case tea.KeyMsg:
-		switch {
-		case key.Matches(msg, key.NewBinding(key.WithKeys("tab"))):
-			return m.focusNext()
-		case key.Matches(msg, key.NewBinding(key.WithKeys("shift+tab"))):
-			return m.focusPrev()
-		case key.Matches(msg, key.NewBinding(key.WithKeys("enter"))):
-			return m.handleEnter()
+	switch action {
+	case FormSubmitted:
+		return m, func() tea.Msg {
+			return InstallFormSubmitMsg{
+				ImageRef: m.form.TextField(installImageRefField).Value(),
+				Hostname: m.form.TextField(installHostnameField).Value(),
+			}
 		}
+	case FormCancelled:
+		return m, func() tea.Msg { return InstallFormCancelMsg{} }
 	}
 
-	// Update the focused input
-	switch m.focused {
-	case fieldImageRef:
-		var cmd tea.Cmd
-		m.imageRefInput, cmd = m.imageRefInput.Update(msg)
-		cmds = append(cmds, cmd)
-	case fieldHostname:
-		var cmd tea.Cmd
-		m.hostnameInput, cmd = m.hostnameInput.Update(msg)
-		cmds = append(cmds, cmd)
+	if prev == 0 && m.form.Focused() != 0 {
+		m.updateHostnamePlaceholder()
 	}
 
-	return m, tea.Batch(cmds...)
+	return m, cmd
 }
 
 func (m InstallForm) View() string {
-	// Image ref field
-	imageRefLabel := Styles.Label.Render("Image")
-	imageRefField := Styles.Focus(Styles.Input, m.focused == fieldImageRef).
-		Render(m.imageRefInput.View())
-
-	// Hostname field
-	hostnameLabel := Styles.Label.Render("Hostname")
-	hostnameField := Styles.Focus(Styles.Input, m.focused == fieldHostname).
-		Render(m.hostnameInput.View())
-
-	// Buttons
-	installButton := Styles.Focus(Styles.ButtonPrimary, m.focused == fieldInstallButton).
-		Render("Install")
-	cancelButton := Styles.Focus(Styles.Button, m.focused == fieldCancelButton).
-		Render("Cancel")
-
-	buttons := lipgloss.JoinHorizontal(lipgloss.Center, installButton, cancelButton)
-
-	form := lipgloss.JoinVertical(lipgloss.Left,
-		imageRefLabel,
-		imageRefField,
-		hostnameLabel,
-		hostnameField,
-		"",
-		buttons,
-	)
-
-	return form
+	return m.form.View()
 }
 
 func (m InstallForm) ImageRef() string {
-	return m.imageRefInput.Value()
+	return m.form.TextField(installImageRefField).Value()
 }
 
 func (m InstallForm) Hostname() string {
-	return m.hostnameInput.Value()
+	return m.form.TextField(installHostnameField).Value()
 }
 
 // Private
 
-func (m InstallForm) focusNext() (InstallForm, tea.Cmd) {
-	m.blurCurrent()
-	m.focused = (m.focused + 1) % fieldCount
-	return m.focusCurrent()
-}
-
-func (m InstallForm) focusPrev() (InstallForm, tea.Cmd) {
-	m.blurCurrent()
-	m.focused = (m.focused - 1 + fieldCount) % fieldCount
-	return m.focusCurrent()
-}
-
-func (m *InstallForm) blurCurrent() {
-	switch m.focused {
-	case fieldImageRef:
-		m.imageRefInput.Blur()
-		m.updateHostnamePlaceholder()
-	case fieldHostname:
-		m.hostnameInput.Blur()
-	}
-}
-
-func (m InstallForm) focusCurrent() (InstallForm, tea.Cmd) {
-	var cmd tea.Cmd
-	switch m.focused {
-	case fieldImageRef:
-		cmd = m.imageRefInput.Focus()
-	case fieldHostname:
-		cmd = m.hostnameInput.Focus()
-	}
-	return m, cmd
-}
-
-func (m InstallForm) handleEnter() (InstallForm, tea.Cmd) {
-	switch m.focused {
-	case fieldImageRef, fieldHostname:
-		return m.focusNext()
-	case fieldInstallButton:
-		return m, func() tea.Msg {
-			return InstallFormSubmitMsg{
-				ImageRef: m.imageRefInput.Value(),
-				Hostname: m.hostnameInput.Value(),
-			}
-		}
-	case fieldCancelButton:
-		return m, func() tea.Msg { return InstallFormCancelMsg{} }
-	}
-	return m, nil
-}
-
 func (m *InstallForm) updateHostnamePlaceholder() {
-	appName := docker.NameFromImageRef(m.imageRefInput.Value())
+	appName := docker.NameFromImageRef(m.form.TextField(installImageRefField).Value())
 	if appName != m.lastAppName && appName != "" {
-		m.hostnameInput.Placeholder = appName + ".example.com"
+		m.form.TextField(installHostnameField).SetPlaceholder(appName + ".example.com")
 		m.lastAppName = appName
 	}
 }
