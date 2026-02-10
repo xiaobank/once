@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"charm.land/bubbles/v2/help"
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/textinput"
 	"charm.land/bubbles/v2/viewport"
@@ -42,7 +41,7 @@ type Logs struct {
 	filterActive  bool
 	filterText    string
 	width, height int
-	help          help.Model
+	help          Help
 
 	lastVersion    uint64
 	lastFilterText string
@@ -69,7 +68,7 @@ func NewLogs(ns *docker.Namespace, app *docker.Application) Logs {
 		streamer:    streamer,
 		viewport:    vp,
 		filterInput: filterInput,
-		help:        help.New(),
+		help:        NewHelp(),
 		wasAtBottom: true,
 	}
 }
@@ -91,6 +90,11 @@ func (m Logs) Update(msg tea.Msg) (Component, tea.Cmd) {
 		m.help.SetWidth(m.width)
 		m.updateViewportSize()
 		m.rebuildContent()
+
+	case tea.MouseClickMsg:
+		if cmd := m.help.Update(msg, logsKeys); cmd != nil {
+			return m, cmd
+		}
 
 	case tea.KeyMsg:
 		if m.filterActive {
@@ -126,10 +130,7 @@ func (m Logs) View() string {
 		m.viewport.SetHeight(viewportHeight)
 	}
 
-	topLayer := lipgloss.NewLayer(titleBox + "\n" + m.viewport.View())
-	bottomLayer := lipgloss.NewLayer(helpLine).Y(m.height - helpHeight)
-
-	return lipgloss.NewCanvas(topLayer, bottomLayer).Render()
+	return titleBox + "\n" + m.viewport.View() + "\n" + helpLine
 }
 
 // Private
@@ -137,6 +138,7 @@ func (m Logs) View() string {
 func (m Logs) handleFilterKey(msg tea.KeyMsg) (Component, tea.Cmd) {
 	if key.Matches(msg, key.NewBinding(key.WithKeys("esc"))) {
 		m.filterActive = false
+		logsKeys.Filter.SetEnabled(true)
 		m.filterText = ""
 		m.filterInput.SetValue("")
 		m.filterInput.Blur()
@@ -159,6 +161,7 @@ func (m Logs) handleNormalKey(msg tea.KeyMsg) (Component, tea.Cmd) {
 
 	case key.Matches(msg, logsKeys.Filter):
 		m.filterActive = true
+		logsKeys.Filter.SetEnabled(false)
 		return m, m.filterInput.Focus()
 	}
 

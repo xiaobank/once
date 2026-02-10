@@ -103,9 +103,4 @@ func (s styles) CenteredLine(width int, content string) string {
 	return lipgloss.NewStyle().Width(width).Align(lipgloss.Center).Render(content)
 }
 
-func CenteredLayer(content string, containerWidth, containerHeight int) *lipgloss.Layer {
-	x := (containerWidth - lipgloss.Width(content)) / 2
-	y := (containerHeight - lipgloss.Height(content)) / 2
-	return lipgloss.NewLayer(content).X(x).Y(y)
-}
 

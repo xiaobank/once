@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"time"
 
-	"charm.land/bubbles/v2/help"
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -66,7 +65,7 @@ type dashboardState struct {
 	upgrading bool
 	toggling  bool
 	progress  ProgressBusy
-	help      help.Model
+	help      Help
 }
 
 type Dashboard struct {
@@ -95,7 +94,7 @@ func NewDashboard(ns *docker.Namespace, app *docker.Application, scraper *metric
 
 	state := &dashboardState{
 		app:  app,
-		help: help.New(),
+		help: NewHelp(),
 	}
 
 	header := NewContent(func(width, height int) string {
@@ -215,6 +214,16 @@ func (m Dashboard) Update(msg tea.Msg) (Component, tea.Cmd) {
 		updated, _ := m.layout.Update(msg)
 		m.layout = updated.(StackLayout)
 
+	case tea.MouseClickMsg:
+		if m.showingMenu {
+			var cmd tea.Cmd
+			m.settingsMenu, cmd = m.settingsMenu.Update(msg)
+			return m, cmd
+		}
+		if cmd := m.state.help.Update(msg, dashboardKeys); cmd != nil {
+			return m, cmd
+		}
+
 	case tea.KeyMsg:
 		if m.showingMenu {
 			var cmd tea.Cmd
@@ -296,9 +305,9 @@ func (m Dashboard) View() string {
 	content := m.layout.View()
 
 	if m.showingMenu {
-		contentLayer := lipgloss.NewLayer(content)
-		menuLayer := CenteredLayer(m.settingsMenu.View(), m.width, m.height)
-		return lipgloss.NewCanvas(contentLayer, menuLayer).Render()
+		contentLayer := newZoneLayer(content)
+		menuLayer := centeredZoneLayer(m.settingsMenu.View(), m.width, m.height)
+		return renderPreservingZones(contentLayer, menuLayer)
 	}
 
 	return content

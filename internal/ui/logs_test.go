@@ -4,7 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"charm.land/bubbles/v2/help"
 	"charm.land/bubbles/v2/textinput"
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
@@ -22,7 +21,7 @@ func newTestLogs() Logs {
 		streamer:    newTestLogStreamerForUI(),
 		viewport:    viewport.New(),
 		filterInput: textinput.New(),
-		help:        help.New(),
+		help:        NewHelp(),
 	}
 }
 

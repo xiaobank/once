@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"charm.land/bubbles/v2/help"
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -35,7 +34,7 @@ const (
 type Install struct {
 	namespace     *docker.Namespace
 	width, height int
-	help          help.Model
+	help          Help
 	state         installState
 	form          InstallForm
 	activity      InstallActivity
@@ -44,7 +43,7 @@ type Install struct {
 func NewInstall(ns *docker.Namespace) Install {
 	return Install{
 		namespace: ns,
-		help:      help.New(),
+		help:      NewHelp(),
 		state:     installStateForm,
 		form:      NewInstallForm(),
 	}
@@ -63,6 +62,13 @@ func (m Install) Update(msg tea.Msg) (Component, tea.Cmd) {
 			m.form, _ = m.form.Update(msg)
 		} else {
 			m.activity, _ = m.activity.Update(msg)
+		}
+
+	case tea.MouseClickMsg:
+		if m.state == installStateForm {
+			if cmd := m.help.Update(msg, installKeys); cmd != nil {
+				return m, cmd
+			}
 		}
 
 	case tea.KeyMsg:

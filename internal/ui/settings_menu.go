@@ -3,7 +3,6 @@ package ui
 import (
 	"strings"
 
-	"charm.land/bubbles/v2/help"
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -48,14 +47,14 @@ type SettingsMenu struct {
 	app           *docker.Application
 	selected      settingsMenuItem
 	width, height int
-	help          help.Model
+	help          Help
 }
 
 func NewSettingsMenu(app *docker.Application) SettingsMenu {
 	return SettingsMenu{
 		app:      app,
 		selected: menuItemApplication,
-		help:     help.New(),
+		help:     NewHelp(),
 	}
 }
 
@@ -67,6 +66,11 @@ func (m SettingsMenu) Update(msg tea.Msg) (SettingsMenu, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
+
+	case tea.MouseClickMsg:
+		if cmd := m.help.Update(msg, settingsMenuKeys); cmd != nil {
+			return m, cmd
+		}
 
 	case tea.KeyMsg:
 		switch {

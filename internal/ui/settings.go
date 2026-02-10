@@ -3,7 +3,6 @@ package ui
 import (
 	"context"
 
-	"charm.land/bubbles/v2/help"
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -51,7 +50,7 @@ type Settings struct {
 	namespace     *docker.Namespace
 	app           *docker.Application
 	width, height int
-	help          help.Model
+	help          Help
 	state         settingsState
 	section       SettingsSection
 	sectionType   SettingsSectionType
@@ -78,7 +77,7 @@ func NewSettings(ns *docker.Namespace, app *docker.Application, sectionType Sett
 	return Settings{
 		namespace:   ns,
 		app:         app,
-		help:        help.New(),
+		help:        NewHelp(),
 		state:       settingsStateForm,
 		section:     section,
 		sectionType: sectionType,
@@ -102,6 +101,13 @@ func (m Settings) Update(msg tea.Msg) (Component, tea.Cmd) {
 		}
 		if m.state == settingsStateDeploying {
 			cmds = append(cmds, m.progress.Init())
+		}
+
+	case tea.MouseClickMsg:
+		if m.state == settingsStateForm {
+			if cmd := m.help.Update(msg, settingsKeys); cmd != nil {
+				return m, cmd
+			}
 		}
 
 	case tea.KeyMsg:
