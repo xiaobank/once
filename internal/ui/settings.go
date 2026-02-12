@@ -70,12 +70,12 @@ type settingsDeployFinishedMsg struct {
 }
 
 type settingsActionFinishedMsg struct {
-	err error
+	err     error
+	message string
 }
 
 type settingsRunActionMsg struct {
-	action         func() error
-	successMessage string
+	action func() (string, error)
 }
 
 func NewSettings(ns *docker.Namespace, app *docker.Application, sectionType SettingsSectionType) Settings {
@@ -171,10 +171,10 @@ func (m Settings) Update(msg tea.Msg) (Component, tea.Cmd) {
 
 	case settingsRunActionMsg:
 		m.state = settingsStateRunningAction
-		m.actionSuccessMessage = msg.successMessage
 		m.progress = NewProgressBusy(m.width, Colors.Border)
 		return m, tea.Batch(m.progress.Init(), func() tea.Msg {
-			return settingsActionFinishedMsg{err: msg.action()}
+			message, err := msg.action()
+			return settingsActionFinishedMsg{err: err, message: message}
 		})
 
 	case settingsDeployFinishedMsg:
@@ -186,7 +186,8 @@ func (m Settings) Update(msg tea.Msg) (Component, tea.Cmd) {
 			m.err = msg.err
 			return m, nil
 		}
-		if m.actionSuccessMessage != "" {
+		if msg.message != "" {
+			m.actionSuccessMessage = msg.message
 			m.state = settingsStateActionComplete
 			return m, nil
 		}

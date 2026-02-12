@@ -81,10 +81,13 @@ func (r *Runner) checkUpdate(ctx context.Context, app *docker.Application, state
 
 	r.logger.Info("Running auto-update", "app", app.Settings.Name)
 
-	if err := app.Update(ctx, nil); err != nil {
+	changed, err := app.Update(ctx, nil)
+	if err != nil {
 		r.logger.Error("Auto-update failed", "app", app.Settings.Name, "error", err)
-	} else {
+	} else if changed {
 		r.logger.Info("Auto-update completed", "app", app.Settings.Name)
+	} else {
+		r.logger.Info("Already up to date", "app", app.Settings.Name)
 	}
 }
 

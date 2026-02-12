@@ -31,12 +31,9 @@ func NewSettingsFormBackups(app *docker.Application, lastResult *docker.Operatio
 		FormItem{Label: "Backups", Field: autoBackField},
 	)
 	form.SetActionButton("Run backup now", func() tea.Msg {
-		return settingsRunActionMsg{
-			action: func() error {
-				return runBackup(app, pathField.Value())
-			},
-			successMessage: "Backup complete",
-		}
+		return settingsRunActionMsg{action: func() (string, error) {
+			return "Backup complete", runBackup(app, pathField.Value())
+		}}
 	})
 
 	return SettingsFormBackups{

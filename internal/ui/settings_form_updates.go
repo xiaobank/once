@@ -24,8 +24,15 @@ func NewSettingsFormUpdates(app *docker.Application, lastResult *docker.Operatio
 		FormItem{Label: "Updates", Field: autoUpdateField},
 	)
 	form.SetActionButton("Check for updates", func() tea.Msg {
-		return settingsRunActionMsg{action: func() error {
-			return app.Update(context.Background(), nil)
+		return settingsRunActionMsg{action: func() (string, error) {
+			changed, err := app.Update(context.Background(), nil)
+			if err != nil {
+				return "", err
+			}
+			if !changed {
+				return "Already running the latest version", nil
+			}
+			return "Update complete", nil
 		}}
 	})
 
@@ -68,5 +75,5 @@ func (m SettingsFormUpdates) View() string {
 }
 
 func (m SettingsFormUpdates) StatusLine() string {
-	return formatOperationStatus("update", m.lastResult)
+	return formatOperationStatus("checked", m.lastResult)
 }

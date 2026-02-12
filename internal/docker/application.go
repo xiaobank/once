@@ -219,14 +219,32 @@ func (a *Application) Start(ctx context.Context) error {
 	return a.namespace.client.ContainerStart(ctx, name, container.StartOptions{})
 }
 
-func (a *Application) Update(ctx context.Context, progress DeployProgressCallback) error {
-	err := a.Deploy(ctx, progress)
+func (a *Application) Update(ctx context.Context, progress DeployProgressCallback) (bool, error) {
+	changed, err := a.pullImage(ctx, progress)
+	if err != nil {
+		a.saveOperationResult(ctx, func(s *State) { s.RecordUpdate(a.Settings.Name, err) })
+		return false, err
+	}
+
+	if !changed {
+		a.saveOperationResult(ctx, func(s *State) { s.RecordUpdate(a.Settings.Name, nil) })
+		return false, nil
+	}
+
+	vol, err := a.Volume(ctx)
+	if err != nil {
+		err = fmt.Errorf("getting volume: %w", err)
+		a.saveOperationResult(ctx, func(s *State) { s.RecordUpdate(a.Settings.Name, err) })
+		return false, err
+	}
+
+	err = a.deployWithVolume(ctx, vol, progress)
 	a.saveOperationResult(ctx, func(s *State) { s.RecordUpdate(a.Settings.Name, err) })
-	return err
+	return true, err
 }
 
 func (a *Application) Deploy(ctx context.Context, progress DeployProgressCallback) error {
-	if err := a.pullImage(ctx, progress); err != nil {
+	if _, err := a.pullImage(ctx, progress); err != nil {
 		return err
 	}
 
@@ -239,7 +257,7 @@ func (a *Application) Deploy(ctx context.Context, progress DeployProgressCallbac
 }
 
 func (a *Application) Restore(ctx context.Context, volSettings ApplicationVolumeSettings, volumeData []byte) error {
-	if err := a.pullImage(ctx, nil); err != nil {
+	if _, err := a.pullImage(ctx, nil); err != nil {
 		return err
 	}
 
@@ -399,23 +417,38 @@ func (a *Application) backupToWriter(ctx context.Context, w io.Writer) error {
 	return nil
 }
 
-func (a *Application) pullImage(ctx context.Context, progress DeployProgressCallback) error {
+func (a *Application) pullImage(ctx context.Context, progress DeployProgressCallback) (bool, error) {
+	beforeID := a.currentImageID(ctx)
+
 	reader, err := a.namespace.client.ImagePull(ctx, a.Settings.Image, image.PullOptions{})
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrPullFailed, err)
+		return false, fmt.Errorf("%w: %w", ErrPullFailed, err)
 	}
 	defer reader.Close()
 
 	if progress != nil {
 		tracker := newPullProgressTracker(progress)
 		if err := tracker.Track(reader); err != nil {
-			return fmt.Errorf("%w: %w", ErrPullFailed, err)
+			return false, fmt.Errorf("%w: %w", ErrPullFailed, err)
 		}
 	} else {
 		_, _ = io.Copy(io.Discard, reader)
 	}
 
-	return nil
+	afterInspect, err := a.namespace.client.ImageInspect(ctx, a.Settings.Image)
+	if err != nil {
+		return false, fmt.Errorf("%w: inspecting image after pull: %w", ErrPullFailed, err)
+	}
+
+	return afterInspect.ID != beforeID, nil
+}
+
+func (a *Application) currentImageID(ctx context.Context) string {
+	inspect, err := a.namespace.client.ImageInspect(ctx, a.Settings.Image)
+	if err != nil {
+		return ""
+	}
+	return inspect.ID
 }
 
 func (a *Application) deployWithVolume(ctx context.Context, vol *ApplicationVolume, progress DeployProgressCallback) error {
