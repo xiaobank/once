@@ -2,22 +2,19 @@ package ui
 
 import (
 	"context"
-	"fmt"
-	"image/color"
 	"strings"
 	"time"
 
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 
 	"github.com/basecamp/once/internal/docker"
 	"github.com/basecamp/once/internal/metrics"
 )
 
 const (
-	PanelHeight = 10
+	PanelHeight = 8
 	PanelGap    = 1
 )
 
@@ -54,6 +51,7 @@ type Dashboard struct {
 	scraper       *metrics.MetricsScraper
 	dockerScraper *docker.Scraper
 	apps          []*docker.Application
+	panels        []DashboardPanel
 	selectedIndex int
 	width, height int
 	viewport      viewport.Model
@@ -85,7 +83,7 @@ func NewDashboard(ns *docker.Namespace, apps []*docker.Application, selectedInde
 	vp.KeyMap.Left.SetEnabled(false)
 	vp.KeyMap.Right.SetEnabled(false)
 
-	return Dashboard{
+	d := Dashboard{
 		namespace:     ns,
 		scraper:       scraper,
 		dockerScraper: dockerScraper,
@@ -94,6 +92,8 @@ func NewDashboard(ns *docker.Namespace, apps []*docker.Application, selectedInde
 		viewport:      vp,
 		help:          NewHelp(),
 	}
+	d.buildPanels()
+	return d
 }
 
 func (m Dashboard) Init() tea.Cmd {
@@ -201,6 +201,9 @@ func (m Dashboard) Update(msg tea.Msg) (Component, tea.Cmd) {
 		m.updateViewportSize()
 		m.rebuildViewportContent()
 
+	case scrapeDoneMsg:
+		m.rebuildViewportContent()
+
 	case dashboardTickMsg:
 		m.rebuildViewportContent()
 		cmds = append(cmds, tea.Tick(time.Second, func(time.Time) tea.Msg { return dashboardTickMsg{} }))
@@ -218,6 +221,7 @@ func (m Dashboard) Update(msg tea.Msg) (Component, tea.Cmd) {
 			previousName = m.apps[m.selectedIndex].Settings.Name
 		}
 		m.apps = m.namespace.Applications()
+		m.buildPanels()
 		m.selectedIndex = 0
 		for i, app := range m.apps {
 			if app.Settings.Name == previousName {
@@ -290,12 +294,15 @@ func (m *Dashboard) updateViewportSize() {
 }
 
 func (m *Dashboard) rebuildViewportContent() {
-	panels := make([]string, len(m.apps))
-	for i, app := range m.apps {
-		panels[i] = m.renderPanel(app, i == m.selectedIndex)
+	var sections []string
+	for i := range m.apps {
+		if i > 0 {
+			sections = append(sections, m.renderSeparator(i-1))
+		}
+		toggling := m.toggling && m.togglingApp == m.apps[i].Settings.Name
+		sections = append(sections, m.panels[i].View(i == m.selectedIndex, toggling, m.width))
 	}
-	joined := strings.Join(panels, strings.Repeat("\n", PanelGap+1))
-	m.viewport.SetContent(joined)
+	m.viewport.SetContent(strings.Join(sections, "\n"))
 }
 
 func (m *Dashboard) scrollToSelection() {
@@ -308,85 +315,13 @@ func (m *Dashboard) scrollToSelection() {
 	}
 }
 
-func (m Dashboard) renderPanel(app *docker.Application, selected bool) string {
-	borderColor := Colors.Border
-	if selected {
-		borderColor = Colors.Focused
-	}
-
-	title := app.Settings.URL()
-	if title == "" {
-		title = app.Settings.Name
-	}
-
-	isToggling := m.toggling && m.togglingApp == app.Settings.Name
-	stateLine := renderStateLine(app, isToggling)
-
-	innerWidth := m.width - 4
-	if innerWidth < 0 {
-		innerWidth = 0
-	}
-	titleLine := lipgloss.Place(innerWidth, 1, lipgloss.Center, lipgloss.Center,
-		Styles.Title.Render(title))
-
-	content := lipgloss.JoinVertical(lipgloss.Left, titleLine, "", stateLine)
-
-	return lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(borderColor).
-		Width(m.width - 2).
-		Height(PanelHeight - 2).
-		Render(content)
+func (m Dashboard) renderSeparator(_ int) string {
+	return ""
 }
 
-// Helpers
-
-func renderStateLine(app *docker.Application, toggling bool) string {
-	var status string
-	var statusColor color.Color
-	if toggling && app.Running {
-		status = "stopping..."
-		statusColor = Colors.Warning
-	} else if toggling {
-		status = "starting..."
-		statusColor = Colors.Warning
-	} else if app.Running {
-		status = "running"
-		statusColor = Colors.Success
-	} else {
-		status = "stopped"
-		statusColor = Colors.Error
+func (m *Dashboard) buildPanels() {
+	m.panels = make([]DashboardPanel, len(m.apps))
+	for i, app := range m.apps {
+		m.panels[i] = NewDashboardPanel(app, m.scraper, m.dockerScraper)
 	}
-
-	stateStyle := lipgloss.NewStyle().Foreground(statusColor)
-	stateDisplay := fmt.Sprintf("State: %s", stateStyle.Render(status))
-
-	if app.Running && !app.RunningSince.IsZero() {
-		stateDisplay += fmt.Sprintf(" (up %s)", formatDuration(time.Since(app.RunningSince)))
-	}
-
-	return stateDisplay
-}
-
-func formatDuration(d time.Duration) string {
-	if d < time.Minute {
-		return fmt.Sprintf("%ds", int(d.Seconds()))
-	}
-	if d < time.Hour {
-		return fmt.Sprintf("%dm", int(d.Minutes()))
-	}
-	if d < 24*time.Hour {
-		hours := int(d.Hours())
-		mins := int(d.Minutes()) % 60
-		if mins == 0 {
-			return fmt.Sprintf("%dh", hours)
-		}
-		return fmt.Sprintf("%dh %dm", hours, mins)
-	}
-	days := int(d.Hours()) / 24
-	hours := int(d.Hours()) % 24
-	if hours == 0 {
-		return fmt.Sprintf("%dd", days)
-	}
-	return fmt.Sprintf("%dd %dh", days, hours)
 }

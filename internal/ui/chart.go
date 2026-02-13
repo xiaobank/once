@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 
-	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 )
 
@@ -52,21 +51,6 @@ func (u UnitType) Format(value float64) string {
 	}
 }
 
-type DataSource func() []float64
-
-// Chart renders a histogram-style chart using braille characters.
-// Each data point is one character wide, and the height scales dynamically
-// so the maximum value fills the available height.
-type Chart struct {
-	title      string
-	color      lipgloss.Style
-	unit       UnitType
-	dataSource DataSource
-	width      int
-	height     int
-	data       []float64
-}
-
 // braille bit patterns for left and right columns
 // Each column has 4 dots, allowing 2 data points per character.
 // Left column dots (bottom to top): 7, 3, 2, 1
@@ -76,56 +60,39 @@ var (
 	rightDots = [4]rune{0x80, 0x20, 0x10, 0x08} // dots 8, 6, 5, 4
 )
 
-func NewChart(title string, color lipgloss.Style, unit UnitType, dataSource DataSource) Chart {
-	return Chart{
-		title:      title,
-		color:      color,
-		unit:       unit,
-		dataSource: dataSource,
-	}
+// Chart renders a braille histogram. The constructor takes static properties
+// (title, color, unit) and View takes per-render values (data, width, height).
+type Chart struct {
+	title string
+	color lipgloss.Style
+	unit  UnitType
 }
 
-func (c Chart) Init() tea.Cmd {
-	return nil
+func NewChart(title string, color lipgloss.Style, unit UnitType) Chart {
+	return Chart{title: title, color: color, unit: unit}
 }
 
-func (c Chart) Update(msg tea.Msg) (Component, tea.Cmd) {
-	switch msg := msg.(type) {
-	case ComponentSizeMsg:
-		c.width, c.height = msg.Width, msg.Height
-	case ChartRefreshMsg:
-		c.refreshData()
-	}
-	return c, nil
-}
-
-// ChartRefreshMsg tells a Chart to refresh its data from its data source
-type ChartRefreshMsg struct{}
-
-func (c *Chart) refreshData() {
-	c.data = c.dataSource()
-}
-
-func (c Chart) View() string {
-	if c.width == 0 || c.height == 0 {
+// View renders the chart as a string.
+// Layout at the given height: row 1 is the title, remaining rows are the
+// braille chart with max-value label on the first chart row and "0" on the last.
+func (c Chart) View(data []float64, width, height int) string {
+	if width <= 0 || height <= 0 {
 		return ""
 	}
 
-	// Account for border (2 chars width, 2 lines height) and title (1 line)
-	innerWidth := c.width - 2
-	chartRows := c.height - 2 - 1 // minus border, minus title
+	chartRows := height - 1 // minus title row
 	if chartRows < 1 {
 		chartRows = 1
 	}
 
 	// Ensure data fills the chart width (each chart char = 2 data points)
-	dataPoints := c.width * 2
-	data := make([]float64, dataPoints)
-	srcStart := max(0, len(c.data)-dataPoints)
-	dstStart := max(0, dataPoints-len(c.data))
-	copy(data[dstStart:], c.data[srcStart:])
+	dataPoints := width * 2
+	padded := make([]float64, dataPoints)
+	srcStart := max(0, len(data)-dataPoints)
+	dstStart := max(0, dataPoints-len(data))
+	copy(padded[dstStart:], data[srcStart:])
 
-	maxVal := maxValue(data)
+	maxVal := maxValue(padded)
 	displayMax := maxVal
 	if maxVal == 0 {
 		maxVal = 1
@@ -134,7 +101,7 @@ func (c Chart) View() string {
 	// Format labels and calculate label width
 	maxLabel := c.unit.Format(displayMax)
 	labelWidth := max(len(maxLabel), 1)
-	chartWidth := innerWidth - labelWidth - 1 // -1 for space between label and chart
+	chartWidth := width - labelWidth - 1 // -1 for space between label and chart
 
 	if chartWidth <= 0 {
 		return ""
@@ -144,24 +111,20 @@ func (c Chart) View() string {
 	dotsHeight := chartRows * 4
 
 	// Calculate the height in dots for each data point
-	heights := make([]int, len(data))
-	for i, v := range data {
+	heights := make([]int, len(padded))
+	for i, v := range padded {
 		heights[i] = int((v / maxVal) * float64(dotsHeight))
 		if v > 0 && heights[i] == 0 {
-			heights[i] = 1 // ensure non-zero values show at least 1 dot
+			heights[i] = 1
 		}
 	}
 
-	var content []string
+	var lines []string
 
-	// Title line (centered over inner width)
-	if c.title != "" {
-		titleLine := Styles.CenteredLine(innerWidth, c.title)
-		content = append(content, titleLine)
-	}
+	// Title line (left-aligned in chart color)
+	lines = append(lines, c.color.Render(c.title))
 
 	// Build the chart row by row, from top to bottom
-	// Use rightmost data points if we have more data than chart columns
 	dataOffset := max(0, len(heights)-chartWidth*2)
 
 	labelStyle := lipgloss.NewStyle().Width(labelWidth).Align(lipgloss.Left)
@@ -176,12 +139,10 @@ func (c Chart) View() string {
 
 			var char rune = 0x2800 // braille base character
 
-			// Left column (first data point)
 			if dataIdxLeft < len(heights) {
 				char |= brailleColumn(heights[dataIdxLeft], rowBottomDot, rowTopDot, leftDots)
 			}
 
-			// Right column (second data point)
 			if dataIdxRight < len(heights) {
 				char |= brailleColumn(heights[dataIdxRight], rowBottomDot, rowTopDot, rightDots)
 			}
@@ -189,7 +150,6 @@ func (c Chart) View() string {
 			sb.WriteRune(char)
 		}
 
-		// Add label on first and last row
 		var label string
 		switch row {
 		case 0:
@@ -201,15 +161,10 @@ func (c Chart) View() string {
 		}
 
 		chartRow := c.color.Render(sb.String())
-		content = append(content, label+" "+chartRow)
+		lines = append(lines, label+" "+chartRow)
 	}
 
-	// Wrap in rounded border
-	borderStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(Colors.Border)
-
-	return borderStyle.Render(strings.Join(content, "\n"))
+	return strings.Join(lines, "\n")
 }
 
 // brailleColumn returns the braille bits for a single column based on height

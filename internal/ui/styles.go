@@ -7,33 +7,45 @@ import (
 )
 
 type colors struct {
-	Primary    color.Color
-	Secondary  color.Color
-	Background color.Color
-	Text       color.Color
-	TextDark   color.Color
-	Focused    color.Color
-	Border     color.Color
-	Success    color.Color
-	Warning    color.Color
-	Error      color.Color
-	Info       color.Color
-	Muted      color.Color
+	Primary         color.Color
+	Secondary       color.Color
+	Background      color.Color
+	Text            color.Color
+	TextDark        color.Color
+	Focused         color.Color
+	Border          color.Color
+	Success         color.Color
+	Warning         color.Color
+	Error           color.Color
+	Info            color.Color
+	Muted           color.Color
 }
 
 var Colors = colors{
-	Primary:    lipgloss.Color("#FF69B4"),
-	Secondary:  lipgloss.Color("#9f3"),
-	Background: lipgloss.Color("#000000"),
-	Text:       lipgloss.Color("#FFFFFF"),
-	TextDark:   lipgloss.Color("#000000"),
-	Focused:    lipgloss.Color("#FFA500"),
-	Border:     lipgloss.Color("#6272a4"),
-	Success:    lipgloss.Color("#50fa7b"),
-	Warning:    lipgloss.Color("#f1fa8c"),
-	Error:      lipgloss.Color("#ff5555"),
-	Info:       lipgloss.Color("#8be9fd"),
-	Muted:      lipgloss.Color("#bd93f9"),
+	Primary:         lipgloss.Color("#7AA2F7"),
+	Secondary:       lipgloss.Color("#9f3"),
+	Background:      lipgloss.Color("#000000"),
+	Text:            lipgloss.Color("#FFFFFF"),
+	TextDark:        lipgloss.Color("#000000"),
+	Focused:         lipgloss.Color("#FFA500"),
+	Border:          lipgloss.Color("#6272a4"),
+	Success:         lipgloss.Color("#50fa7b"),
+	Warning:         lipgloss.Color("#f1fa8c"),
+	Error:           lipgloss.Color("#ff5555"),
+	Info:            lipgloss.Color("#8be9fd"),
+	Muted:           lipgloss.Color("#bd93f9"),
+}
+
+var ChartColors = struct {
+	CPU      lipgloss.Style
+	Memory   lipgloss.Style
+	Requests lipgloss.Style
+	Errors   lipgloss.Style
+}{
+	CPU:      lipgloss.NewStyle().Foreground(Colors.Info),
+	Memory:   lipgloss.NewStyle().Foreground(Colors.Muted),
+	Requests: lipgloss.NewStyle().Foreground(Colors.Success),
+	Errors:   lipgloss.NewStyle().Foreground(Colors.Error),
 }
 
 type styles struct {

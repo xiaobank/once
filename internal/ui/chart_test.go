@@ -21,19 +21,13 @@ func TestChartView(t *testing.T) {
 		60, 65, 50, 55, 65, 60, 55, 60, 45, 50,
 	}
 
-	chart := NewChart("Test", lipgloss.NewStyle(), UnitCount, func() []float64 { return data })
-	updated, _ := chart.Update(ComponentSizeMsg{Width: 40, Height: 8})
-	chart = updated.(Chart)
-	updated, _ = chart.Update(ChartRefreshMsg{})
-	chart = updated.(Chart)
-	output := chart.View()
+	chart := NewChart("Test", lipgloss.NewStyle(), UnitCount)
+	output := chart.View(data, 40, 6)
 
 	fmt.Println("\nChart output:")
 	fmt.Println(output)
 
-	if output == "" {
-		t.Error("expected non-empty chart output")
-	}
+	assert.NotEmpty(t, output)
 }
 
 func TestSlidingSum(t *testing.T) {
