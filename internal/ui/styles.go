@@ -21,8 +21,7 @@ type colors struct {
 	Error           color.Color
 	Info            color.Color
 	Muted           color.Color
-	PanelBg         color.Color
-	PanelSelectedBg color.Color
+	PanelBg color.Color
 }
 
 var Colors = colors{
@@ -41,10 +40,6 @@ var Colors = colors{
 	PanelBg: compat.AdaptiveColor{
 		Light: lipgloss.Color("#e8e8e8"),
 		Dark:  lipgloss.Color("#1a1b26"),
-	},
-	PanelSelectedBg: compat.AdaptiveColor{
-		Light: lipgloss.Color("#e2e2e2"),
-		Dark:  lipgloss.Color("#1e2030"),
 	},
 }
 

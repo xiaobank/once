@@ -2,23 +2,18 @@ package ui
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
-	zone "github.com/lrstanley/bubblezone/v2"
 
 	"github.com/basecamp/once/internal/docker"
 	"github.com/basecamp/once/internal/metrics"
 )
 
-const (
-	PanelHeight = 8
-	PanelGap    = 1
-)
+const PanelHeight = 7
 
 type dashboardKeyMap struct {
 	Up        key.Binding
@@ -134,13 +129,11 @@ func (m Dashboard) Update(msg tea.Msg) (Component, tea.Cmd) {
 			return m, cmd
 		}
 		if msg.Button == tea.MouseLeft {
-			for i := range m.apps {
-				if zi := zone.Get(panelZoneID(i)); zi != nil && zi.InBounds(msg) {
-					m.selectedIndex = i
-					m.rebuildViewportContent()
-					m.scrollToSelection()
-					return m, nil
-				}
+			if idx, ok := m.panelIndexAtY(msg.Y); ok {
+				m.selectedIndex = idx
+				m.rebuildViewportContent()
+				m.scrollToSelection()
+				return m, nil
 			}
 		}
 
@@ -265,9 +258,9 @@ func (m Dashboard) View() string {
 
 	var content string
 	if m.toggling {
-		content = titleLine + "\n\n" + m.viewport.View() + "\n" + m.progress.View() + "\n" + helpLine
+		content = titleLine + "\n" + m.viewport.View() + "\n" + m.progress.View() + "\n" + helpLine
 	} else {
-		content = titleLine + "\n\n" + m.viewport.View() + "\n" + helpLine
+		content = titleLine + "\n" + m.viewport.View() + "\n" + helpLine
 	}
 
 	if m.showingMenu {
@@ -294,7 +287,7 @@ func (m Dashboard) runStartStop(app *docker.Application) tea.Cmd {
 }
 
 func (m *Dashboard) updateViewportSize() {
-	titleHeight := 2 // title line + blank line
+	titleHeight := 1 // title line
 	helpHeight := 1
 	progressHeight := 0
 	if m.toggling {
@@ -311,19 +304,17 @@ func (m *Dashboard) updateViewportSize() {
 func (m *Dashboard) rebuildViewportContent() {
 	var sections []string
 	for i := range m.apps {
-		if i > 0 {
-			sections = append(sections, m.renderSeparator(i-1))
-		}
 		toggling := m.toggling && m.togglingApp == m.apps[i].Settings.Name
 		panel := m.panels[i].View(i == m.selectedIndex, toggling, m.width)
-		sections = append(sections, zone.Mark(panelZoneID(i), panel))
+		sections = append(sections, panel)
 	}
 	m.viewport.SetContent(strings.Join(sections, "\n"))
 }
 
 func (m *Dashboard) scrollToSelection() {
-	panelTop := m.selectedIndex * (PanelHeight + PanelGap)
-	panelBottom := panelTop + PanelHeight
+	slotHeight := PanelHeight + 2 // body + top/bottom transition lines
+	panelTop := m.selectedIndex * slotHeight
+	panelBottom := panelTop + slotHeight
 	if panelTop < m.viewport.YOffset() {
 		m.viewport.SetYOffset(panelTop)
 	} else if panelBottom > m.viewport.YOffset()+m.viewport.Height() {
@@ -331,12 +322,18 @@ func (m *Dashboard) scrollToSelection() {
 	}
 }
 
-func (m Dashboard) renderSeparator(_ int) string {
-	return ""
-}
-
-func panelZoneID(index int) string {
-	return fmt.Sprintf("dashboard_%d", index)
+func (m *Dashboard) panelIndexAtY(y int) (int, bool) {
+	titleHeight := 1 // title line
+	contentY := y - titleHeight + m.viewport.YOffset()
+	if contentY < 0 {
+		return 0, false
+	}
+	slotHeight := PanelHeight + 2
+	idx := contentY / slotHeight
+	if idx >= len(m.apps) {
+		return 0, false
+	}
+	return idx, true
 }
 
 func (m *Dashboard) buildPanels() {

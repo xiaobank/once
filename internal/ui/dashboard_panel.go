@@ -49,11 +49,11 @@ func (p DashboardPanel) View(selected bool, toggling bool, width int) string {
 
 	left := Styles.Title.Render(title)
 	right := renderStateInfo(p.app, toggling)
-	gap := innerWidth - lipgloss.Width(left) - lipgloss.Width(right)
+	gap := innerWidth - 1 - lipgloss.Width(left) - lipgloss.Width(right)
 	if gap < 1 {
 		gap = 1
 	}
-	titleLine := left + strings.Repeat(" ", gap) + right
+	titleLine := " " + left + strings.Repeat(" ", gap) + right
 
 	var lines []string
 	lines = append(lines, titleLine)
@@ -77,31 +77,50 @@ func (p DashboardPanel) View(selected bool, toggling bool, width int) string {
 		errChart := p.errorChart.View(p.fetchErrorData(), chartW(3), chartHeight)
 
 		chartsRow := lipgloss.JoinHorizontal(lipgloss.Top, cpuChart, " ", memChart, " ", reqChart, " ", errChart)
-		lines = append(lines, "")
 		lines = append(lines, chartsRow)
 	}
 
 	content := lipgloss.JoinVertical(lipgloss.Left, lines...)
 
-	bg := Colors.PanelBg
-	if selected {
-		bg = Colors.PanelSelectedBg
-	}
-
-	body := lipgloss.NewStyle().
-		Background(bg).
+	bodyStyle := lipgloss.NewStyle().
 		Width(width - 1).
 		Padding(0, 1).
-		Height(PanelHeight).
-		Render(content)
-	body = fixBackground(body, bg)
+		Height(PanelHeight)
+
+	var body string
+	if selected {
+		body = bodyStyle.Background(Colors.PanelBg).Render(content)
+		body = fixBackground(body, Colors.PanelBg)
+	} else {
+		body = bodyStyle.Render(content)
+	}
 
 	indicator := p.renderIndicator(selected)
+	topTrans := p.renderTopTransition(selected, width)
+	bottomTrans := p.renderBottomTransition(selected, width)
 
-	return lipgloss.JoinHorizontal(lipgloss.Top, indicator, body)
+	return topTrans + "\n" + lipgloss.JoinHorizontal(lipgloss.Top, indicator, body) + "\n" + bottomTrans
 }
 
 // Private
+
+func (p DashboardPanel) renderTopTransition(selected bool, width int) string {
+	if !selected {
+		return strings.Repeat(" ", width)
+	}
+	indicatorChar := lipgloss.NewStyle().Foreground(Colors.Focused).Render("▗")
+	bodyChars := lipgloss.NewStyle().Foreground(Colors.PanelBg).Render(strings.Repeat("▄", width-1))
+	return indicatorChar + bodyChars
+}
+
+func (p DashboardPanel) renderBottomTransition(selected bool, width int) string {
+	if !selected {
+		return strings.Repeat(" ", width)
+	}
+	indicatorChar := lipgloss.NewStyle().Foreground(Colors.Focused).Render("▝")
+	bodyChars := lipgloss.NewStyle().Foreground(Colors.PanelBg).Render(strings.Repeat("▀", width-1))
+	return indicatorChar + bodyChars
+}
 
 func (p DashboardPanel) renderIndicator(selected bool) string {
 	rows := make([]string, PanelHeight)
