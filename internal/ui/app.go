@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -41,6 +42,7 @@ type (
 		section SettingsSectionType
 	}
 )
+
 type (
 	navigateToLogsMsg struct{ app *docker.Application }
 	quitMsg           struct{}
@@ -197,6 +199,9 @@ func (m App) View() tea.View {
 }
 
 func Run(ns *docker.Namespace) error {
+	slog.Info("Starting ONCE UI")
+	defer func() { slog.Info("Stopping ONCE UI") }()
+
 	zone.NewGlobal()
 	app := NewApp(ns)
 	_, err := tea.NewProgram(app).Run()
