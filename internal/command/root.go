@@ -15,6 +15,8 @@ type RootCommand struct {
 	cmd         *cobra.Command
 	namespace   string
 	closeLogger func()
+
+	installImageRef string
 }
 
 func NewRootCommand() *RootCommand {
@@ -40,10 +42,12 @@ func NewRootCommand() *RootCommand {
 			}
 		},
 		RunE: WithNamespace(func(ns *docker.Namespace, cmd *cobra.Command, args []string) error {
-			return ui.Run(ns)
+			return ui.Run(ns, r.installImageRef)
 		}),
 	}
 	r.cmd.PersistentFlags().StringVarP(&r.namespace, "namespace", "n", docker.DefaultNamespace, "namespace for containers")
+
+	r.cmd.Flags().StringVar(&r.installImageRef, "install", "", "Path to Docker image to install")
 
 	r.cmd.AddCommand(NewBackgroundCommand(r).Command())
 	r.cmd.AddCommand(NewBackupCommand(r).Command())

@@ -16,6 +16,7 @@ type FormField interface {
 	Focus() tea.Cmd
 	Blur()
 	SetWidth(int)
+	IsFocusable() bool
 }
 
 // TextField
@@ -86,6 +87,7 @@ func (f *TextField) Blur() {
 func (f *TextField) SetWidth(w int) {
 	f.input.SetWidth(w)
 }
+func (f *TextField) IsFocusable() bool { return true }
 
 // CheckboxField
 
@@ -98,6 +100,32 @@ type CheckboxField struct {
 func NewCheckboxField(label string, checked bool) *CheckboxField {
 	return &CheckboxField{label: label, checked: checked}
 }
+
+// StaticField
+
+type StaticField struct {
+	value   string
+	styleFn func(string) string
+}
+
+func NewStaticField(value string, styleFn func(string) string) *StaticField {
+	return &StaticField{value: value, styleFn: styleFn}
+}
+
+func (f *StaticField) Value() string {
+	return f.value
+}
+
+func (f *StaticField) SetValue(v string) {
+	f.value = v
+}
+
+func (f *StaticField) Update(tea.Msg) tea.Cmd { return nil }
+func (f *StaticField) View() string           { return f.styleFn(f.value) }
+func (f *StaticField) Focus() tea.Cmd         { return nil }
+func (f *StaticField) Blur()                  {}
+func (f *StaticField) SetWidth(int)           {}
+func (f *StaticField) IsFocusable() bool      { return false }
 
 func (f *CheckboxField) Checked() bool {
 	return f.checked
@@ -138,9 +166,10 @@ func (f *CheckboxField) View() string {
 	return "[ ] " + f.label
 }
 
-func (f *CheckboxField) Focus() tea.Cmd { return nil }
-func (f *CheckboxField) Blur()          {}
-func (f *CheckboxField) SetWidth(int)   {}
+func (f *CheckboxField) Focus() tea.Cmd    { return nil }
+func (f *CheckboxField) Blur()             {}
+func (f *CheckboxField) SetWidth(int)      {}
+func (f *CheckboxField) IsFocusable() bool { return true }
 
 // FormActionButton
 
@@ -180,8 +209,13 @@ func NewForm(submitLabel string, items ...FormItem) Form {
 		prefix:      zone.NewPrefix(),
 	}
 
-	if len(items) > 0 {
-		items[0].Field.Focus()
+	// Find first focusable field and focus it
+	for i, item := range items {
+		if item.Field.IsFocusable() {
+			f.focused = i
+			item.Field.Focus()
+			break
+		}
 	}
 
 	return f
@@ -230,6 +264,11 @@ func (f Form) View() string {
 	var parts []string
 
 	for i, item := range f.items {
+		// Static fields don't have a label or border
+		if _, isStatic := item.Field.(*StaticField); isStatic {
+			parts = append(parts, item.Field.View())
+			continue
+		}
 		label := Styles.Label.Render(item.Label)
 		field := Styles.Focus(Styles.Input, f.focused == i).
 			Render(item.Field.View())
@@ -285,13 +324,13 @@ func (f Form) CheckboxField(i int) *CheckboxField {
 func (f Form) focusNext() (Form, tea.Cmd) {
 	f.blurCurrent()
 	f.focused = (f.focused + 1) % f.totalCount()
-	return f.focusCurrent()
+	return f.focusToNextFocusable()
 }
 
 func (f Form) focusPrev() (Form, tea.Cmd) {
 	f.blurCurrent()
 	f.focused = (f.focused - 1 + f.totalCount()) % f.totalCount()
-	return f.focusCurrent()
+	return f.focusToNextFocusable()
 }
 
 func (f *Form) blurCurrent() {
@@ -306,6 +345,28 @@ func (f Form) focusCurrent() (Form, tea.Cmd) {
 		return f, cmd
 	}
 	return f, nil
+}
+
+func (f Form) focusToNextFocusable() (Form, tea.Cmd) {
+	// Skip non-focusable fields and buttons (which are always focusable)
+	start := f.focused
+	for {
+		if f.focused < len(f.items) {
+			if f.items[f.focused].Field.IsFocusable() {
+				return f.focusCurrent()
+			}
+			// Skip to next
+			f.focused = (f.focused + 1) % f.totalCount()
+		} else {
+			// We've reached buttons, which are always focusable
+			return f, nil
+		}
+
+		// Prevent infinite loop
+		if f.focused == start {
+			return f, nil
+		}
+	}
 }
 
 func (f Form) handleEnter() (Form, FormAction, tea.Cmd) {
@@ -326,6 +387,14 @@ func (f Form) handleEnter() (Form, FormAction, tea.Cmd) {
 func (f Form) handleMouseClick(msg tea.MouseClickMsg) (Form, FormAction, tea.Cmd) {
 	for i := range f.items {
 		if zi := zone.Get(f.fieldZoneID(i)); zi != nil && zi.InBounds(msg) {
+			// Only focus if the field is focusable
+			if !f.items[i].Field.IsFocusable() {
+				// For non-focusable fields, just handle clicks (e.g., checkbox toggle) but don't change focus
+				if cb, ok := f.items[i].Field.(*CheckboxField); ok {
+					cb.Toggle()
+				}
+				return f, FormNoAction, nil
+			}
 			form, focusCmd := f.focusIndex(i)
 			if cb, ok := f.items[i].Field.(*CheckboxField); ok {
 				cb.Toggle()

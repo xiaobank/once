@@ -41,12 +41,12 @@ type Install struct {
 	err           error
 }
 
-func NewInstall(ns *docker.Namespace) Install {
+func NewInstall(ns *docker.Namespace, imageRef string) Install {
 	return Install{
 		namespace: ns,
 		help:      NewHelp(),
 		state:     installStateForm,
-		form:      NewInstallForm(),
+		form:      NewInstallForm(imageRef),
 	}
 }
 

@@ -60,17 +60,18 @@ const (
 )
 
 type App struct {
-	namespace     *docker.Namespace
-	scraper       *metrics.MetricsScraper
-	dockerScraper *docker.Scraper
-	currentScreen Component
-	lastSize      tea.WindowSizeMsg
-	eventChan     <-chan struct{}
-	watchCtx      context.Context
-	watchCancel   context.CancelFunc
+	namespace       *docker.Namespace
+	scraper         *metrics.MetricsScraper
+	dockerScraper   *docker.Scraper
+	currentScreen   Component
+	lastSize        tea.WindowSizeMsg
+	eventChan       <-chan struct{}
+	watchCtx        context.Context
+	watchCancel     context.CancelFunc
+	installImageRef string
 }
 
-func NewApp(ns *docker.Namespace) App {
+func NewApp(ns *docker.Namespace, installImageRef string) App {
 	ctx, cancel := context.WithCancel(context.Background())
 	eventChan := ns.EventWatcher().Watch(ctx)
 
@@ -91,20 +92,21 @@ func NewApp(ns *docker.Namespace) App {
 	})
 
 	var screen Component
-	if len(apps) > 0 {
+	if len(apps) > 0 && installImageRef == "" {
 		screen = NewDashboard(ns, apps, 0, scraper, dockerScraper)
 	} else {
-		screen = NewInstall(ns)
+		screen = NewInstall(ns, installImageRef)
 	}
 
 	return App{
-		namespace:     ns,
-		scraper:       scraper,
-		dockerScraper: dockerScraper,
-		currentScreen: screen,
-		eventChan:     eventChan,
-		watchCtx:      ctx,
-		watchCancel:   cancel,
+		namespace:       ns,
+		scraper:         scraper,
+		dockerScraper:   dockerScraper,
+		currentScreen:   screen,
+		eventChan:       eventChan,
+		watchCtx:        ctx,
+		watchCancel:     cancel,
+		installImageRef: installImageRef,
 	}
 }
 
@@ -138,7 +140,7 @@ func (m App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case scrapeDoneMsg:
 		m.currentScreen, _ = m.currentScreen.Update(msg)
 	case navigateToInstallMsg:
-		m.currentScreen = NewInstall(m.namespace)
+		m.currentScreen = NewInstall(m.namespace, "")
 		m.currentScreen, _ = m.currentScreen.Update(m.lastSize)
 		return m, m.currentScreen.Init()
 	case navigateToAppMsg:
@@ -198,12 +200,12 @@ func (m App) View() tea.View {
 	return view
 }
 
-func Run(ns *docker.Namespace) error {
+func Run(ns *docker.Namespace, installImageRef string) error {
 	slog.Info("Starting ONCE UI")
 	defer func() { slog.Info("Stopping ONCE UI") }()
 
 	zone.NewGlobal()
-	app := NewApp(ns)
+	app := NewApp(ns, installImageRef)
 	_, err := tea.NewProgram(app).Run()
 	return err
 }

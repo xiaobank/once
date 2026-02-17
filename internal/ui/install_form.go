@@ -2,6 +2,7 @@ package ui
 
 import (
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/basecamp/once/internal/docker"
 )
@@ -21,15 +22,55 @@ type InstallFormCancelMsg struct{}
 type InstallForm struct {
 	form        Form
 	lastAppName string
+	imageRef    string
 }
 
-func NewInstallForm() InstallForm {
-	return InstallForm{
-		form: NewForm("Install",
-			FormItem{Label: "Image", Field: NewTextField("user/repo:tag")},
-			FormItem{Label: "Hostname", Field: NewTextField("app.example.com")},
-		),
+func NewInstallForm(imageRef string) InstallForm {
+	var formItems []FormItem
+
+	if imageRef != "" {
+		// Expand alias and show static field
+		if expanded, ok := imageAliases[imageRef]; ok {
+			imageRef = expanded
+		}
+
+		styleFunc := func(s string) string {
+			return lipgloss.NewStyle().
+				Foreground(Colors.Muted).
+				Padding(1, 0).
+				Width(60).
+				Align(lipgloss.Center).
+				Render("Installing " + s)
+		}
+
+		formItems = append(formItems, FormItem{
+			Label: "",
+			Field: NewStaticField(imageRef, styleFunc),
+		})
+	} else {
+		formItems = append(formItems, FormItem{
+			Label: "Image",
+			Field: NewTextField("user/repo:tag"),
+		})
 	}
+
+	hostnameField := NewTextField("app.example.com")
+	formItems = append(formItems, FormItem{
+		Label: "Hostname",
+		Field: hostnameField,
+	})
+
+	form := InstallForm{
+		form:     NewForm("Install", formItems...),
+		imageRef: imageRef,
+	}
+
+	// If imageRef is pre-populated, set the hostname placeholder immediately
+	if imageRef != "" {
+		form.updateHostnamePlaceholder()
+	}
+
+	return form
 }
 
 func (m InstallForm) Init() tea.Cmd {
@@ -49,7 +90,7 @@ func (m InstallForm) Update(msg tea.Msg) (InstallForm, tea.Cmd) {
 	case FormSubmitted:
 		return m, func() tea.Msg {
 			return InstallFormSubmitMsg{
-				ImageRef: m.form.TextField(installImageRefField).Value(),
+				ImageRef: m.ImageRef(),
 				Hostname: m.form.TextField(installHostnameField).Value(),
 			}
 		}
@@ -57,7 +98,7 @@ func (m InstallForm) Update(msg tea.Msg) (InstallForm, tea.Cmd) {
 		return m, func() tea.Msg { return InstallFormCancelMsg{} }
 	}
 
-	if prev == 0 && m.form.Focused() != 0 {
+	if prev == 0 && m.form.Focused() != 0 && m.imageRef == "" {
 		m.expandImageAlias()
 		m.updateHostnamePlaceholder()
 	}
@@ -70,6 +111,9 @@ func (m InstallForm) View() string {
 }
 
 func (m InstallForm) ImageRef() string {
+	if m.imageRef != "" {
+		return m.imageRef
+	}
 	return m.form.TextField(installImageRefField).Value()
 }
 
@@ -92,7 +136,7 @@ func (m *InstallForm) expandImageAlias() {
 }
 
 func (m *InstallForm) updateHostnamePlaceholder() {
-	appName := docker.NameFromImageRef(m.form.TextField(installImageRefField).Value())
+	appName := docker.NameFromImageRef(m.ImageRef())
 	if appName != m.lastAppName && appName != "" {
 		m.form.TextField(installHostnameField).SetPlaceholder(appName + ".example.com")
 		m.lastAppName = appName

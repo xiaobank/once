@@ -90,7 +90,7 @@ func TestInstall_CancelNavigatesToDashboard(t *testing.T) {
 // Helpers
 
 func newTestInstall() Install {
-	return NewInstall(nil)
+	return NewInstall(nil, "")
 }
 
 func fillInstallForm(form InstallForm, imageRef, hostname string) InstallForm {

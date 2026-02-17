@@ -9,7 +9,7 @@ import (
 )
 
 func TestInstallForm_FillAndSubmit(t *testing.T) {
-	form := NewInstallForm()
+	form := NewInstallForm("")
 
 	form = installTypeText(form, "nginx:latest")
 	assert.Equal(t, "nginx:latest", form.ImageRef())
@@ -34,7 +34,7 @@ func TestInstallForm_FillAndSubmit(t *testing.T) {
 }
 
 func TestInstallForm_TabNavigation(t *testing.T) {
-	form := NewInstallForm()
+	form := NewInstallForm("")
 	assert.Equal(t, 0, form.form.Focused())
 
 	form = installPressTab(form)
@@ -51,7 +51,7 @@ func TestInstallForm_TabNavigation(t *testing.T) {
 }
 
 func TestInstallForm_ShiftTabNavigation(t *testing.T) {
-	form := NewInstallForm()
+	form := NewInstallForm("")
 
 	form = installPressShiftTab(form)
 	assert.Equal(t, 3, form.form.Focused(), "cancel button")
@@ -61,7 +61,7 @@ func TestInstallForm_ShiftTabNavigation(t *testing.T) {
 }
 
 func TestInstallForm_CancelButton(t *testing.T) {
-	form := NewInstallForm()
+	form := NewInstallForm("")
 
 	for range 3 {
 		form = installPressTab(form)
