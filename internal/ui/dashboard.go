@@ -95,7 +95,7 @@ func NewDashboard(ns *docker.Namespace, apps []*docker.Application, selectedInde
 }
 
 func (m Dashboard) Init() tea.Cmd {
-	return tea.Tick(time.Second, func(time.Time) tea.Msg { return dashboardTickMsg{} })
+	return m.scheduleNextDashboardTick()
 }
 
 func (m Dashboard) Update(msg tea.Msg) (Component, tea.Cmd) {
@@ -212,7 +212,7 @@ func (m Dashboard) Update(msg tea.Msg) (Component, tea.Cmd) {
 
 	case dashboardTickMsg:
 		m.rebuildViewportContent()
-		cmds = append(cmds, tea.Tick(time.Second, func(time.Time) tea.Msg { return dashboardTickMsg{} }))
+		cmds = append(cmds, m.scheduleNextDashboardTick())
 
 	case progressBusyTickMsg:
 		if m.toggling {
@@ -285,6 +285,10 @@ func (m Dashboard) runStartStop(app *docker.Application) tea.Cmd {
 		}
 		return startStopFinishedMsg{err: err}
 	}
+}
+
+func (m Dashboard) scheduleNextDashboardTick() tea.Cmd {
+	return tea.Every(time.Second, func(time.Time) tea.Msg { return dashboardTickMsg{} })
 }
 
 func (m *Dashboard) updateViewportSize() {

@@ -78,7 +78,7 @@ func (m Logs) Init() tea.Cmd {
 	if err == nil {
 		m.streamer.Start(context.Background(), containerName)
 	}
-	return tea.Tick(100*time.Millisecond, func(time.Time) tea.Msg { return logsTickMsg{} })
+	return m.scheduleNextLogsTick()
 }
 
 func (m Logs) Update(msg tea.Msg) (Component, tea.Cmd) {
@@ -104,7 +104,7 @@ func (m Logs) Update(msg tea.Msg) (Component, tea.Cmd) {
 
 	case logsTickMsg:
 		m.checkForUpdates()
-		cmds = append(cmds, tea.Tick(100*time.Millisecond, func(time.Time) tea.Msg { return logsTickMsg{} }))
+		cmds = append(cmds, m.scheduleNextLogsTick())
 
 	case namespaceChangedMsg:
 		containerName, err := m.app.ContainerName(context.Background())
@@ -142,6 +142,10 @@ func (m Logs) View() string {
 }
 
 // Private
+
+func (m Logs) scheduleNextLogsTick() tea.Cmd {
+	return tea.Every(100*time.Millisecond, func(time.Time) tea.Msg { return logsTickMsg{} })
+}
 
 func (m Logs) handleFilterKey(msg tea.KeyMsg) (Component, tea.Cmd) {
 	if key.Matches(msg, key.NewBinding(key.WithKeys("esc"))) {

@@ -115,7 +115,7 @@ func (m App) Init() tea.Cmd {
 		m.currentScreen.Init(),
 		m.watchForChanges(),
 		m.runScrape(),
-		tea.Tick(ChartUpdateInterval, func(time.Time) tea.Msg { return scrapeTickMsg{} }),
+		m.scheduleNextScrapeTick(),
 	)
 }
 
@@ -135,7 +135,7 @@ func (m App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case scrapeTickMsg:
 		return m, tea.Batch(
 			m.runScrape(),
-			tea.Tick(ChartUpdateInterval, func(time.Time) tea.Msg { return scrapeTickMsg{} }),
+			m.scheduleNextScrapeTick(),
 		)
 	case scrapeDoneMsg:
 		m.currentScreen, _ = m.currentScreen.Update(msg)
@@ -211,6 +211,10 @@ func Run(ns *docker.Namespace, installImageRef string) error {
 }
 
 // Private
+
+func (m App) scheduleNextScrapeTick() tea.Cmd {
+	return tea.Every(ChartUpdateInterval, func(time.Time) tea.Msg { return scrapeTickMsg{} })
+}
 
 func (m App) shutdown() {
 	m.watchCancel()
