@@ -47,9 +47,10 @@ func (d *DeployCommand) run(ns *docker.Namespace, cmd *cobra.Command, args []str
 	}
 
 	app := ns.AddApplication(docker.ApplicationSettings{
-		Name:  name,
-		Image: imageRef,
-		Host:  name + ".localhost",
+		Name:       name,
+		Image:      imageRef,
+		Host:       name + ".localhost",
+		AutoUpdate: true,
 	})
 
 	progress := func(p docker.DeployProgress) {

@@ -166,9 +166,10 @@ func (m InstallActivity) runInstall() {
 	}
 
 	app := m.namespace.AddApplication(docker.ApplicationSettings{
-		Name:  appName,
-		Image: m.imageRef,
-		Host:  hostname,
+		Name:       appName,
+		Image:      m.imageRef,
+		Host:       hostname,
+		AutoUpdate: true,
 	})
 
 	progress := func(p docker.DeployProgress) {
