@@ -1,6 +1,7 @@
 package renderer
 
 import (
+	"io"
 	"os"
 	"os/signal"
 	"sync"
@@ -137,6 +138,11 @@ func (t *Terminal) Write(p []byte) (n int, err error) {
 // WriteString writes a string to the terminal output.
 func (t *Terminal) WriteString(s string) (n int, err error) {
 	return t.out.WriteString(s)
+}
+
+// Input returns the terminal's input source.
+func (t *Terminal) Input() io.Reader {
+	return t.in
 }
 
 // Flush ensures all output is written (os.File doesn't buffer, but this

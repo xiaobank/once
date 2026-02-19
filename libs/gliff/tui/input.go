@@ -1,14 +1,14 @@
 package tui
 
 import (
-	"os"
+	"io"
 	"strings"
 	"unicode/utf8"
 )
 
-// inputReader reads from stdin and sends keys and mouse events to channels.
+// inputReader reads from an input source and sends keys and mouse events to channels.
 type inputReader struct {
-	in      *os.File
+	in      io.Reader
 	keyCh   chan Key
 	mouseCh chan MouseMsg
 	stopCh  chan struct{}
@@ -16,7 +16,7 @@ type inputReader struct {
 }
 
 // newInputReader creates and starts an input reader.
-func newInputReader(in *os.File) *inputReader {
+func newInputReader(in io.Reader) *inputReader {
 	ir := &inputReader{
 		in:      in,
 		keyCh:   make(chan Key, 32),

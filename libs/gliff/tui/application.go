@@ -1,7 +1,7 @@
 package tui
 
 import (
-	"os"
+	"io"
 
 	"github.com/basecamp/gliff/renderer"
 )
@@ -11,9 +11,21 @@ type screen interface {
 	Resize(width, height int)
 }
 
+type terminal interface {
+	io.Writer
+	EnterFullScreen() error
+	ExitFullScreen() error
+	Size() (int, int)
+	StartResizeListener()
+	StopResizeListener()
+	Resized() <-chan struct{}
+	Input() io.Reader
+}
+
 type Application struct {
 	component    Component
 	mouseTracker *MouseTracker
+	term         terminal
 }
 
 func NewApplication(c Component) *Application {
@@ -24,24 +36,26 @@ func NewApplication(c Component) *Application {
 }
 
 func (a *Application) Run() error {
-	// Create and setup terminal
-	term, err := renderer.NewTerminal()
-	if err != nil {
-		return err
+	if a.term == nil {
+		t, err := renderer.NewTerminal()
+		if err != nil {
+			return err
+		}
+		a.term = t
 	}
 
-	if err := term.EnterFullScreen(); err != nil {
+	if err := a.term.EnterFullScreen(); err != nil {
 		return err
 	}
-	defer term.ExitFullScreen()
+	defer a.term.ExitFullScreen()
 
 	// Create screen and message channel
-	width, height := term.Size()
-	screen := renderer.NewScreen(term, width, height)
+	width, height := a.term.Size()
+	screen := renderer.NewScreen(a.term, width, height)
 	msgs := make(chan Msg)
 
 	// Start event sources
-	defer a.handleResizeEvents(term, msgs)()
+	defer a.handleResizeEvents(msgs)()
 	defer a.handleInputEvents(msgs)()
 
 	// Initialize component and run event loop
@@ -49,19 +63,19 @@ func (a *Application) Run() error {
 	return a.eventLoop(screen, msgs)
 }
 
-func (a *Application) handleResizeEvents(term *renderer.Terminal, msgs chan<- Msg) (stop func()) {
-	term.StartResizeListener()
+func (a *Application) handleResizeEvents(msgs chan<- Msg) (stop func()) {
+	a.term.StartResizeListener()
 	go func() {
-		for range term.Resized() {
-			w, h := term.Size()
+		for range a.term.Resized() {
+			w, h := a.term.Size()
 			msgs <- WindowSizeMsg{Width: w, Height: h}
 		}
 	}()
-	return term.StopResizeListener
+	return a.term.StopResizeListener
 }
 
 func (a *Application) handleInputEvents(msgs chan<- Msg) (stop func()) {
-	input := newInputReader(os.Stdin)
+	input := newInputReader(a.term.Input())
 	go func() {
 		for key := range input.Keys() {
 			msgs <- KeyMsg{key}
