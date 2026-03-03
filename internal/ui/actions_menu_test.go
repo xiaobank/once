@@ -29,7 +29,7 @@ func TestActionsMenu_SelectStartStop(t *testing.T) {
 	m := NewActionsMenu(app)
 
 	// Shortcut key goes to menu, which returns MenuSelectMsg
-	m, cmd := updateActionsMenu(m, runeKeyMsg('s'))
+	m, cmd := updateActionsMenu(m, keyPressMsg("s"))
 	require.NotNil(t, cmd)
 	msg := cmd()
 
@@ -48,7 +48,7 @@ func TestActionsMenu_SelectRemove(t *testing.T) {
 	app := &docker.Application{}
 	m := NewActionsMenu(app)
 
-	m, cmd := updateActionsMenu(m, runeKeyMsg('r'))
+	m, cmd := updateActionsMenu(m, keyPressMsg("r"))
 	require.NotNil(t, cmd)
 	msg := cmd()
 
@@ -78,15 +78,15 @@ func TestActionsMenu_KeyboardNavigation(t *testing.T) {
 	m := NewActionsMenu(app)
 
 	// Navigate down to Remove
-	m, _ = updateActionsMenu(m, runeKeyMsg('j'))
+	m, _ = updateActionsMenu(m, keyPressMsg("j"))
 	assert.Equal(t, 1, m.menu.selected)
 
 	// Navigate back up to Start/Stop
-	m, _ = updateActionsMenu(m, runeKeyMsg('k'))
+	m, _ = updateActionsMenu(m, keyPressMsg("k"))
 	assert.Equal(t, 0, m.menu.selected)
 
 	// Navigate down and select with enter
-	m, _ = updateActionsMenu(m, runeKeyMsg('j'))
+	m, _ = updateActionsMenu(m, keyPressMsg("j"))
 	m, cmd := updateActionsMenu(m, keyPressMsg("enter"))
 	require.NotNil(t, cmd)
 	msg := cmd()

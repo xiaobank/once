@@ -43,7 +43,7 @@ func TestLogsFilterActivation(t *testing.T) {
 	m := newTestLogs()
 	m.filterActive = false
 
-	m, _ = updateLogs(m, runeKeyMsg('/'))
+	m, _ = updateLogs(m, keyPressMsg("/"))
 
 	assert.True(t, m.filterActive)
 }
@@ -53,7 +53,7 @@ func TestLogsFilterAppliesOnKeypress(t *testing.T) {
 	m.filterActive = true
 	m.filterInput.SetValue("err")
 
-	m, _ = updateLogs(m, runeKeyMsg('o'))
+	m, _ = updateLogs(m, keyPressMsg("o"))
 
 	assert.Equal(t, m.filterInput.Value(), m.filterText)
 }

@@ -82,7 +82,7 @@ func TestInstallForm_CancelButton(t *testing.T) {
 
 func installTypeText(form *InstallForm, text string) {
 	for _, r := range text {
-		*form, _ = form.Update(runeKeyMsg(r))
+		*form, _ = form.Update(keyPressMsg(string(r)))
 	}
 }
 

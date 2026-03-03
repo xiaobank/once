@@ -110,13 +110,13 @@ func TestTextField_DigitsOnly(t *testing.T) {
 	field.SetDigitsOnly(true)
 	field.Focus()
 
-	field.Update(runeKeyMsg('5'))
+	field.Update(keyPressMsg("5"))
 	assert.Equal(t, "5", field.Value())
 
-	field.Update(runeKeyMsg('a'))
+	field.Update(keyPressMsg("a"))
 	assert.Equal(t, "5", field.Value(), "non-digit rejected")
 
-	field.Update(runeKeyMsg('3'))
+	field.Update(keyPressMsg("3"))
 	assert.Equal(t, "53", field.Value())
 }
 
@@ -289,14 +289,6 @@ func TestForm_ValidationFocusesFirstError(t *testing.T) {
 
 // Helpers
 
-func keyPressMsg(s string) tea.KeyPressMsg {
-	return tea.KeyPressMsg(tea.Key{Text: s})
-}
-
-func runeKeyMsg(r rune) tea.KeyPressMsg {
-	return tea.KeyPressMsg(tea.Key{Text: string(r), Code: r})
-}
-
 func updateForm(f Form, msg tea.Msg) Form {
 	f, _ = f.Update(msg)
 	return f
@@ -316,7 +308,7 @@ func formPressEnter(form *Form) {
 
 func formTypeText(form *Form, text string) {
 	for _, r := range text {
-		*form = updateForm(*form, runeKeyMsg(r))
+		*form = updateForm(*form, keyPressMsg(string(r)))
 	}
 }
 

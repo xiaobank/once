@@ -81,10 +81,10 @@ func TestDashboardKeyboardJK(t *testing.T) {
 	d.updateViewportSize()
 	d.rebuildViewportContent()
 
-	d, _ = updateDashboard(d, runeKeyMsg('j'))
+	d, _ = updateDashboard(d, keyPressMsg("j"))
 	assert.Equal(t, 1, d.selectedIndex)
 
-	d, _ = updateDashboard(d, runeKeyMsg('k'))
+	d, _ = updateDashboard(d, keyPressMsg("k"))
 	assert.Equal(t, 0, d.selectedIndex)
 }
 
@@ -95,7 +95,7 @@ func TestDashboard_ActionsMenuOpensOnA(t *testing.T) {
 	d.updateViewportSize()
 	d.rebuildViewportContent()
 
-	d, _ = updateDashboard(d, runeKeyMsg('a'))
+	d, _ = updateDashboard(d, keyPressMsg("a"))
 	assert.NotNil(t, d.overlay)
 }
 
@@ -106,7 +106,7 @@ func TestDashboard_ActionsMenuCloses(t *testing.T) {
 	d.updateViewportSize()
 	d.rebuildViewportContent()
 
-	d, _ = updateDashboard(d, runeKeyMsg('a'))
+	d, _ = updateDashboard(d, keyPressMsg("a"))
 	assert.NotNil(t, d.overlay)
 
 	d, _ = updateDashboard(d, ActionsMenuCloseMsg{})
@@ -147,7 +147,7 @@ func TestDashboard_OldStartStopKeyRemoved(t *testing.T) {
 	d.updateViewportSize()
 	d.rebuildViewportContent()
 
-	d, _ = updateDashboard(d, runeKeyMsg('o'))
+	d, _ = updateDashboard(d, keyPressMsg("o"))
 	assert.False(t, d.toggling)
 }
 
@@ -158,7 +158,7 @@ func TestDashboard_SettingsMenuStillWorks(t *testing.T) {
 	d.updateViewportSize()
 	d.rebuildViewportContent()
 
-	d, _ = updateDashboard(d, runeKeyMsg('s'))
+	d, _ = updateDashboard(d, keyPressMsg("s"))
 	assert.NotNil(t, d.overlay)
 }
 

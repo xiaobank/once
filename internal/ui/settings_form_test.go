@@ -391,7 +391,7 @@ func updateSettingsForm[T any](form *T, msg tea.Msg) {
 
 func applicationTypeText(form *SettingsFormApplication, text string) {
 	for _, r := range text {
-		updateSettingsForm(form, runeKeyMsg(r))
+		updateSettingsForm(form, keyPressMsg(string(r)))
 	}
 }
 
@@ -409,7 +409,7 @@ func applicationPressShiftTab(form *SettingsFormApplication) {
 }
 
 func applicationPressSpace(form *SettingsFormApplication) {
-	updateSettingsForm(form, runeKeyMsg(' '))
+	updateSettingsForm(form, keyPressMsg(" "))
 }
 
 func emailPressTab(form *SettingsFormEmail) {
@@ -422,7 +422,7 @@ func resourcesPressTab(form *SettingsFormResources) {
 
 func resourcesTypeText(form *SettingsFormResources, text string) {
 	for _, r := range text {
-		updateSettingsForm(form, runeKeyMsg(r))
+		updateSettingsForm(form, keyPressMsg(string(r)))
 	}
 }
 
@@ -431,11 +431,11 @@ func backupsPressTab(form *SettingsFormBackups) {
 }
 
 func backupsPressSpace(form *SettingsFormBackups) {
-	updateSettingsForm(form, runeKeyMsg(' '))
+	updateSettingsForm(form, keyPressMsg(" "))
 }
 
 func backupsTypeText(form *SettingsFormBackups, text string) {
 	for _, r := range text {
-		updateSettingsForm(form, runeKeyMsg(r))
+		updateSettingsForm(form, keyPressMsg(string(r)))
 	}
 }

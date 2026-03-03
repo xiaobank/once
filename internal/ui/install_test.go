@@ -62,7 +62,7 @@ func TestInstall_ErrorClearsOnKeypress(t *testing.T) {
 	m := newTestInstall()
 	m.err = errors.New("some error")
 
-	m, _ = updateInstall(m, runeKeyMsg('a'))
+	m, _ = updateInstall(m, keyPressMsg("a"))
 	assert.Nil(t, m.err)
 }
 
