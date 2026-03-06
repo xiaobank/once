@@ -92,7 +92,7 @@ func TestComputeSummary(t *testing.T) {
 
 	store := &BucketStore{
 		LastTimestamp: now,
-		Services:     map[string]*ServiceData{"campfire": svc},
+		Services:      map[string]*ServiceData{"campfire": svc},
 	}
 
 	summary := computeSummary(store)
@@ -127,7 +127,7 @@ func TestComputeSummaryExpiredBuckets(t *testing.T) {
 
 	store := &BucketStore{
 		LastTimestamp: now,
-		Services:     map[string]*ServiceData{"campfire": svc},
+		Services:      map[string]*ServiceData{"campfire": svc},
 	}
 
 	summary := computeSummary(store)

@@ -18,16 +18,16 @@ import (
 const NumBuckets = 168 // 7 days × 24 hours
 
 const (
-	stateFileDir      = "/home/kamal-proxy/.config/kamal-proxy"
-	binaryFileName    = "once-userstats.bin"
-	binaryFilePath    = stateFileDir + "/" + binaryFileName
-	summaryFileName   = "once-userstats.json"
-	summaryFilePath   = stateFileDir + "/" + summaryFileName
+	stateFileDir    = "/home/kamal-proxy/.config/kamal-proxy"
+	binaryFileName  = "once-userstats.bin"
+	binaryFilePath  = stateFileDir + "/" + binaryFileName
+	summaryFileName = "once-userstats.json"
+	summaryFilePath = stateFileDir + "/" + summaryFileName
 )
 
 type Summary struct {
-	UpdatedAt time.Time                  `json:"updated_at"`
-	Services  map[string]ServiceSummary  `json:"services"`
+	UpdatedAt time.Time                 `json:"updated_at"`
+	Services  map[string]ServiceSummary `json:"services"`
 }
 
 type ServiceSummary struct {
@@ -37,7 +37,7 @@ type ServiceSummary struct {
 
 type BucketStore struct {
 	LastTimestamp time.Time
-	Services     map[string]*ServiceData
+	Services      map[string]*ServiceData
 }
 
 type ServiceData struct {
@@ -160,7 +160,7 @@ func deserializeSketch(data []byte) *hyperloglog.Sketch {
 
 type gobStore struct {
 	LastTimestamp time.Time
-	Services     map[string]*gobServiceData
+	Services      map[string]*gobServiceData
 }
 
 type gobServiceData struct {
@@ -171,7 +171,7 @@ type gobServiceData struct {
 func encodeStore(store *BucketStore) ([]byte, error) {
 	gs := gobStore{
 		LastTimestamp: store.LastTimestamp,
-		Services:     make(map[string]*gobServiceData),
+		Services:      make(map[string]*gobServiceData),
 	}
 
 	for name, svc := range store.Services {
@@ -196,7 +196,7 @@ func decodeStore(data []byte) (*BucketStore, error) {
 
 	store := &BucketStore{
 		LastTimestamp: gs.LastTimestamp,
-		Services:     make(map[string]*ServiceData),
+		Services:      make(map[string]*ServiceData),
 	}
 
 	for name, svc := range gs.Services {

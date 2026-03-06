@@ -49,7 +49,7 @@ func TestMenu_LetterKeysIgnoredWithoutShortcuts(t *testing.T) {
 
 func TestMenu_CentersItemsWithoutShortcuts(t *testing.T) {
 	menu := NewMenu(
-		MenuItem{Label: "Short", Key: 0},       // 5 chars
+		MenuItem{Label: "Short", Key: 0},          // 5 chars
 		MenuItem{Label: "A longer label", Key: 1}, // 14 chars
 	)
 	menu.SetWidth(30)

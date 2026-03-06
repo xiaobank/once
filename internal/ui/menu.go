@@ -131,7 +131,7 @@ func (m Menu) View() string {
 		if m.hasShortcuts {
 			keyText := keyStyle.Render(item.Shortcut.Help().Key)
 			keyWidth := lipgloss.Width(keyText)
-			line = lipgloss.NewStyle().Width(width - keyWidth).Render(line) + keyText
+			line = lipgloss.NewStyle().Width(width-keyWidth).Render(line) + keyText
 		} else {
 			line = lipgloss.NewStyle().Width(width).Align(lipgloss.Center).Render(line)
 		}

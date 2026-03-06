@@ -24,11 +24,11 @@ var appKeys = struct {
 }
 
 type (
-	namespaceChangedMsg          struct{}
-	scrapeTickMsg                struct{}
-	scrapeUserStatsTickMsg       struct{}
-	scrapeDoneMsg                struct{}
-	NavigateToInstallMsg struct{}
+	namespaceChangedMsg    struct{}
+	scrapeTickMsg          struct{}
+	scrapeUserStatsTickMsg struct{}
+	scrapeDoneMsg          struct{}
+	NavigateToInstallMsg   struct{}
 	NavigateToDashboardMsg struct {
 		AppName    string
 		AllowEmpty bool

@@ -15,8 +15,8 @@ type Component interface {
 // MouseEvent is dispatched to sub-components after the root App resolves
 // mouse coordinates against the mouse tracker's zone map.
 type MouseEvent struct {
-	X, Y   int
-	Button tea.MouseButton
-	Target string
+	X, Y    int
+	Button  tea.MouseButton
+	Target  string
 	IsClick bool
 }

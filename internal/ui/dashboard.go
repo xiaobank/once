@@ -38,24 +38,24 @@ var dashboardKeys = struct {
 }
 
 type Dashboard struct {
-	namespace      *docker.Namespace
-	scraper        *metrics.MetricsScraper
-	dockerScraper  *docker.Scraper
-	systemScraper  *system.Scraper
-	userStats      *userstats.Reader
-	apps           []*docker.Application
-	panels         []DashboardPanel
-	header         DashboardHeader
-	hostname       string
-	selectedIndex  int
-	width, height  int
-	viewport       viewport.Model
-	toggling       bool
-	togglingApp    string
-	showDetails    bool
-	progress       ProgressBusy
-	help           Help
-	overlay        Component
+	namespace     *docker.Namespace
+	scraper       *metrics.MetricsScraper
+	dockerScraper *docker.Scraper
+	systemScraper *system.Scraper
+	userStats     *userstats.Reader
+	apps          []*docker.Application
+	panels        []DashboardPanel
+	header        DashboardHeader
+	hostname      string
+	selectedIndex int
+	width, height int
+	viewport      viewport.Model
+	toggling      bool
+	togglingApp   string
+	showDetails   bool
+	progress      ProgressBusy
+	help          Help
+	overlay       Component
 }
 
 type dashboardTickMsg struct{}

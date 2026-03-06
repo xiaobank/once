@@ -209,7 +209,6 @@ func (p DashboardPanel) renderVisitsCard(width int) string {
 	return topLine + "\n" + strings.Join(contentLines, "\n") + "\n" + bottomLine
 }
 
-
 func (p DashboardPanel) renderTopTransition(selected bool, width int) string {
 	if !selected {
 		return strings.Repeat(" ", width)
