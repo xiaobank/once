@@ -46,6 +46,7 @@ type Install struct {
 	err           error
 	cliMode       bool
 	customImage   bool
+	installFlag   string
 }
 
 func NewInstall(ns *docker.Namespace, imageRef string) Install {
@@ -53,9 +54,10 @@ func NewInstall(ns *docker.Namespace, imageRef string) Install {
 	h.SetBindings([]key.Binding{installKeys.Back})
 
 	m := Install{
-		namespace: ns,
-		help:      h,
-		cliMode:   imageRef != "",
+		namespace:   ns,
+		help:        h,
+		cliMode:     imageRef != "",
+		installFlag: imageRef,
 	}
 
 	if imageRef != "" {
@@ -63,7 +65,7 @@ func NewInstall(ns *docker.Namespace, imageRef string) Install {
 			imageRef = expanded
 		}
 		m.state = installStateHostname
-		m.hostnameForm = NewInstallHostnameForm(imageRef)
+		m.hostnameForm = NewInstallHostnameForm(imageRef, m.installFlag)
 	} else {
 		m.state = installStateAppList
 		m.appList = NewInstallAppList()
@@ -132,7 +134,7 @@ func (m Install) Update(msg tea.Msg) (Component, tea.Cmd) {
 		}
 
 	case InstallAppSelectedMsg:
-		m.hostnameForm = NewInstallHostnameForm(msg.ImageRef)
+		m.hostnameForm = NewInstallHostnameForm(msg.ImageRef, "")
 		m.customImage = false
 		m.state = installStateHostname
 		return m, m.initScreenWithSize()
@@ -143,7 +145,7 @@ func (m Install) Update(msg tea.Msg) (Component, tea.Cmd) {
 		return m, m.initScreenWithSize()
 
 	case InstallImageSubmitMsg:
-		m.hostnameForm = NewInstallHostnameForm(msg.ImageRef)
+		m.hostnameForm = NewInstallHostnameForm(msg.ImageRef, "")
 		m.customImage = true
 		m.state = installStateHostname
 		return m, m.initScreenWithSize()

@@ -54,6 +54,15 @@ func TestInstall_CLIModeExpandsAlias(t *testing.T) {
 	m, _ = updateInstall(m, tea.WindowSizeMsg{Width: 80, Height: 40})
 	view := ansi.Strip(m.View())
 	assert.Contains(t, view, "once-campfire.example.com")
+	assert.Contains(t, view, "Installing campfire")
+}
+
+func TestInstall_InteractiveModeHasNoTitle(t *testing.T) {
+	m := newTestInstall()
+	m, _ = updateInstall(m, tea.WindowSizeMsg{Width: 80, Height: 40})
+	m, _ = updateInstall(m, InstallAppSelectedMsg{ImageRef: "ghcr.io/basecamp/once-campfire"})
+	view := ansi.Strip(m.View())
+	assert.NotContains(t, view, "Installing")
 }
 
 func TestInstall_SubmitTriggersActivity(t *testing.T) {
@@ -98,7 +107,7 @@ func TestInstall_FailureReturnsToHostname(t *testing.T) {
 func TestInstall_ErrorClearsOnKeypress(t *testing.T) {
 	m := newTestInstall()
 	m.state = installStateHostname
-	m.hostnameForm = NewInstallHostnameForm("nginx:latest")
+	m.hostnameForm = NewInstallHostnameForm("nginx:latest", "")
 	m.err = errors.New("some error")
 
 	m, _ = updateInstall(m, keyPressMsg("a"))
