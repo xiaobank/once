@@ -189,10 +189,7 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 
 	case NavigateToInstallMsg:
-		m.currentScreen = NewInstall(m.namespace, "")
-		var sizeCmd tea.Cmd
-		m.currentScreen, sizeCmd = m.currentScreen.Update(m.lastSize)
-		return m, tea.Batch(sizeCmd, m.currentScreen.Init())
+		return m, m.navigateTo(NewInstall(m.namespace, ""))
 
 	case NavigateToAppMsg:
 		if err := m.namespace.Refresh(m.watchCtx); err != nil {
@@ -206,10 +203,7 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				break
 			}
 		}
-		m.currentScreen = NewDashboard(m.namespace, apps, targetIndex, m.scraper, m.dockerScraper, m.systemScraper, m.userStats)
-		var sizeCmd tea.Cmd
-		m.currentScreen, sizeCmd = m.currentScreen.Update(m.lastSize)
-		return m, tea.Batch(sizeCmd, m.currentScreen.Init())
+		return m, m.navigateTo(NewDashboard(m.namespace, apps, targetIndex, m.scraper, m.dockerScraper, m.systemScraper, m.userStats))
 
 	case NavigateToDashboardMsg:
 		if err := m.namespace.Refresh(m.watchCtx); err != nil {
@@ -227,28 +221,16 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				break
 			}
 		}
-		m.currentScreen = NewDashboard(m.namespace, apps, selectedIndex, m.scraper, m.dockerScraper, m.systemScraper, m.userStats)
-		var sizeCmd tea.Cmd
-		m.currentScreen, sizeCmd = m.currentScreen.Update(m.lastSize)
-		return m, tea.Batch(sizeCmd, m.currentScreen.Init())
+		return m, m.navigateTo(NewDashboard(m.namespace, apps, selectedIndex, m.scraper, m.dockerScraper, m.systemScraper, m.userStats))
 
 	case NavigateToSettingsSectionMsg:
-		m.currentScreen = NewSettings(m.namespace, msg.App, msg.Section)
-		var sizeCmd tea.Cmd
-		m.currentScreen, sizeCmd = m.currentScreen.Update(m.lastSize)
-		return m, tea.Batch(sizeCmd, m.currentScreen.Init())
+		return m, m.navigateTo(NewSettings(m.namespace, msg.App, msg.Section))
 
 	case NavigateToRemoveMsg:
-		m.currentScreen = NewRemove(m.namespace, msg.App)
-		var sizeCmd tea.Cmd
-		m.currentScreen, sizeCmd = m.currentScreen.Update(m.lastSize)
-		return m, tea.Batch(sizeCmd, m.currentScreen.Init())
+		return m, m.navigateTo(NewRemove(m.namespace, msg.App))
 
 	case NavigateToLogsMsg:
-		m.currentScreen = NewLogs(m.namespace, msg.App)
-		var sizeCmd tea.Cmd
-		m.currentScreen, sizeCmd = m.currentScreen.Update(m.lastSize)
-		return m, tea.Batch(sizeCmd, m.currentScreen.Init())
+		return m, m.navigateTo(NewLogs(m.namespace, msg.App))
 
 	case QuitMsg:
 		m.shutdown()
@@ -287,6 +269,13 @@ func (m *App) scheduleNextScrapeTick() tea.Cmd {
 
 func (m *App) scheduleNextUserStatsTick() tea.Cmd {
 	return tea.Every(UserStatsUpdateInterval, func(time.Time) tea.Msg { return scrapeUserStatsTickMsg{} })
+}
+
+func (m *App) navigateTo(screen Component) tea.Cmd {
+	m.currentScreen = screen
+	var sizeCmd tea.Cmd
+	m.currentScreen, sizeCmd = m.currentScreen.Update(m.lastSize)
+	return tea.Batch(sizeCmd, m.currentScreen.Init())
 }
 
 func (m *App) shutdown() {

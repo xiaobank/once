@@ -14,7 +14,6 @@ import (
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
-	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/docker/go-connections/nat"
 )
 
@@ -256,34 +255,12 @@ func (p *Proxy) SaveState(ctx context.Context, state *State) error {
 }
 
 func (p *Proxy) ExecOutput(ctx context.Context, cmd []string) (string, error) {
-	containerName := p.containerName()
-	execResp, err := p.namespace.client.ContainerExecCreate(ctx, containerName, container.ExecOptions{
-		Cmd:          cmd,
-		AttachStdout: true,
-		AttachStderr: true,
-	})
+	result, err := execInContainer(ctx, p.namespace.client, p.containerName(), cmd)
 	if err != nil {
-		return "", fmt.Errorf("creating exec: %w", err)
+		return "", err
 	}
-
-	resp, err := p.namespace.client.ContainerExecAttach(ctx, execResp.ID, container.ExecStartOptions{})
-	if err != nil {
-		return "", fmt.Errorf("attaching exec: %w", err)
+	if result.ExitCode != 0 {
+		return result.Stdout + result.Stderr, fmt.Errorf("exec failed with exit code %d", result.ExitCode)
 	}
-	defer resp.Close()
-
-	var stdout, stderr bytes.Buffer
-	if _, err := stdcopy.StdCopy(&stdout, &stderr, resp.Reader); err != nil {
-		return "", fmt.Errorf("reading exec output: %w", err)
-	}
-
-	inspect, err := p.namespace.client.ContainerExecInspect(ctx, execResp.ID)
-	if err != nil {
-		return "", fmt.Errorf("inspecting exec: %w", err)
-	}
-	if inspect.ExitCode != 0 {
-		return stdout.String() + stderr.String(), fmt.Errorf("exec failed with exit code %d", inspect.ExitCode)
-	}
-
-	return stdout.String(), nil
+	return result.Stdout, nil
 }

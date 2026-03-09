@@ -9,12 +9,12 @@ import (
 	"github.com/basecamp/once/internal/docker"
 )
 
-type StartCommand struct {
+type startCommand struct {
 	cmd *cobra.Command
 }
 
-func NewStartCommand() *StartCommand {
-	s := &StartCommand{}
+func newStartCommand() *startCommand {
+	s := &startCommand{}
 	s.cmd = &cobra.Command{
 		Use:   "start <app>",
 		Short: "Start an application",
@@ -24,14 +24,9 @@ func NewStartCommand() *StartCommand {
 	return s
 }
 
-func (s *StartCommand) Command() *cobra.Command {
-	return s.cmd
-}
-
 // Private
 
-func (s *StartCommand) run(ns *docker.Namespace, cmd *cobra.Command, args []string) error {
-	ctx := context.Background()
+func (s *startCommand) run(ctx context.Context, ns *docker.Namespace, cmd *cobra.Command, args []string) error {
 	appName := args[0]
 
 	err := withApplication(ns, appName, "starting", func(app *docker.Application) error {

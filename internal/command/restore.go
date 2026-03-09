@@ -10,12 +10,12 @@ import (
 	"github.com/basecamp/once/internal/docker"
 )
 
-type RestoreCommand struct {
+type restoreCommand struct {
 	cmd *cobra.Command
 }
 
-func NewRestoreCommand() *RestoreCommand {
-	r := &RestoreCommand{}
+func newRestoreCommand() *restoreCommand {
+	r := &restoreCommand{}
 	r.cmd = &cobra.Command{
 		Use:   "restore <filename>",
 		Short: "Restore an application from a backup file",
@@ -25,14 +25,9 @@ func NewRestoreCommand() *RestoreCommand {
 	return r
 }
 
-func (r *RestoreCommand) Command() *cobra.Command {
-	return r.cmd
-}
-
 // Private
 
-func (r *RestoreCommand) run(ns *docker.Namespace, cmd *cobra.Command, args []string) error {
-	ctx := context.Background()
+func (r *restoreCommand) run(ctx context.Context, ns *docker.Namespace, cmd *cobra.Command, args []string) error {
 	filename := args[0]
 
 	file, err := os.Open(filename)

@@ -9,13 +9,13 @@ import (
 	"github.com/basecamp/once/internal/docker"
 )
 
-type TeardownCommand struct {
+type teardownCommand struct {
 	cmd        *cobra.Command
 	removeData bool
 }
 
-func NewTeardownCommand() *TeardownCommand {
-	t := &TeardownCommand{}
+func newTeardownCommand() *teardownCommand {
+	t := &teardownCommand{}
 	t.cmd = &cobra.Command{
 		Use:   "teardown",
 		Short: "Remove all applications and the proxy",
@@ -25,15 +25,9 @@ func NewTeardownCommand() *TeardownCommand {
 	return t
 }
 
-func (t *TeardownCommand) Command() *cobra.Command {
-	return t.cmd
-}
-
 // Private
 
-func (t *TeardownCommand) run(ns *docker.Namespace, cmd *cobra.Command, args []string) error {
-	ctx := context.Background()
-
+func (t *teardownCommand) run(ctx context.Context, ns *docker.Namespace, cmd *cobra.Command, args []string) error {
 	if err := ns.Teardown(ctx, t.removeData); err != nil {
 		return fmt.Errorf("teardown failed: %w", err)
 	}

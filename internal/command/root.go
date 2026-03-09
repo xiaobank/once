@@ -41,7 +41,7 @@ func NewRootCommand() *RootCommand {
 				r.closeLogger()
 			}
 		},
-		RunE: WithNamespace(func(ns *docker.Namespace, cmd *cobra.Command, args []string) error {
+		RunE: WithNamespace(func(ctx context.Context, ns *docker.Namespace, cmd *cobra.Command, args []string) error {
 			return ui.Run(ns, r.installImageRef)
 		}),
 	}
@@ -49,17 +49,17 @@ func NewRootCommand() *RootCommand {
 
 	r.cmd.Flags().StringVar(&r.installImageRef, "install", "", "Path to Docker image to install")
 
-	r.cmd.AddCommand(NewBackgroundCommand().Command())
-	r.cmd.AddCommand(NewBackupCommand().Command())
-	r.cmd.AddCommand(NewDeployCommand().Command())
-	r.cmd.AddCommand(NewListCommand().Command())
-	r.cmd.AddCommand(NewRemoveCommand().Command())
-	r.cmd.AddCommand(NewRestoreCommand().Command())
-	r.cmd.AddCommand(NewStartCommand().Command())
-	r.cmd.AddCommand(NewStopCommand().Command())
-	r.cmd.AddCommand(NewTeardownCommand().Command())
-	r.cmd.AddCommand(NewUpdateCommand().Command())
-	r.cmd.AddCommand(NewVersionCommand().Command())
+	r.cmd.AddCommand(newBackgroundCommand().cmd)
+	r.cmd.AddCommand(newBackupCommand().cmd)
+	r.cmd.AddCommand(newDeployCommand().cmd)
+	r.cmd.AddCommand(newListCommand().cmd)
+	r.cmd.AddCommand(newRemoveCommand().cmd)
+	r.cmd.AddCommand(newRestoreCommand().cmd)
+	r.cmd.AddCommand(newStartCommand().cmd)
+	r.cmd.AddCommand(newStopCommand().cmd)
+	r.cmd.AddCommand(newTeardownCommand().cmd)
+	r.cmd.AddCommand(newUpdateCommand().cmd)
+	r.cmd.AddCommand(newVersionCommand().cmd)
 
 	return r
 }
@@ -70,7 +70,7 @@ func (r *RootCommand) Execute() error {
 
 // Helpers
 
-type NamespaceRunE func(ns *docker.Namespace, cmd *cobra.Command, args []string) error
+type NamespaceRunE func(ctx context.Context, ns *docker.Namespace, cmd *cobra.Command, args []string) error
 
 func withApplication(ns *docker.Namespace, name string, action string, fn func(*docker.Application) error) error {
 	app := ns.Application(name)
@@ -89,13 +89,16 @@ func WithNamespace(fn NamespaceRunE) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
 
-		namespace, _ := cmd.Root().PersistentFlags().GetString("namespace")
-
-		ns, err := docker.RestoreNamespace(ctx, namespace)
+		ns, err := docker.RestoreNamespace(ctx, namespaceFlag(cmd))
 		if err != nil {
 			return fmt.Errorf("restoring namespace: %w", err)
 		}
 
-		return fn(ns, cmd, args)
+		return fn(ctx, ns, cmd, args)
 	}
+}
+
+func namespaceFlag(cmd *cobra.Command) string {
+	namespace, _ := cmd.Root().PersistentFlags().GetString("namespace")
+	return namespace
 }

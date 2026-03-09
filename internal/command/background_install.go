@@ -11,14 +11,14 @@ import (
 	"github.com/basecamp/once/internal/service"
 )
 
-type BackgroundInstallCommand struct {
+type backgroundInstallCommand struct {
 	cmd *cobra.Command
 }
 
 const backgroundServiceSuffix = "-background"
 
-func NewBackgroundInstallCommand() *BackgroundInstallCommand {
-	b := &BackgroundInstallCommand{}
+func newBackgroundInstallCommand() *backgroundInstallCommand {
+	b := &backgroundInstallCommand{}
 	b.cmd = &cobra.Command{
 		Use:   "install",
 		Short: "Install background tasks as a system service",
@@ -28,20 +28,15 @@ func NewBackgroundInstallCommand() *BackgroundInstallCommand {
 	return b
 }
 
-func (b *BackgroundInstallCommand) Command() *cobra.Command {
-	return b.cmd
-}
-
 // Private
 
-func (b *BackgroundInstallCommand) run(cmd *cobra.Command, args []string) error {
+func (b *backgroundInstallCommand) run(cmd *cobra.Command, args []string) error {
 	if os.Getuid() != 0 {
 		return fmt.Errorf("must be run as root")
 	}
 
 	ctx := context.Background()
-
-	namespace, _ := cmd.Root().PersistentFlags().GetString("namespace")
+	namespace := namespaceFlag(cmd)
 
 	execPath, err := executablePath()
 	if err != nil {

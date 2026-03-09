@@ -85,7 +85,9 @@ func (r *Runner) checkSelfUpdate(ctx context.Context, ns *docker.Namespace, stat
 
 	err := version.NewUpdater().UpdateBinary()
 	state.RecordSelfUpdate(err)
-	ns.SaveState(ctx, state)
+	if saveErr := ns.SaveState(ctx, state); saveErr != nil {
+		slog.Error("Failed to save state after self-update check", "error", saveErr)
+	}
 
 	if err != nil {
 		slog.Error("Self-update failed", "error", err)

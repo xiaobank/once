@@ -16,7 +16,6 @@ const (
 	defaultTailLines     = "10000"
 	scannerBufSize       = 64 * 1024
 	scannerMaxSize       = 1024 * 1024
-	streamRetryDelay     = time.Second
 )
 
 type LogLine struct {
@@ -45,9 +44,7 @@ type LogStreamer struct {
 	client   logsClient
 
 	mu      sync.RWMutex
-	lines   []LogLine
-	head    int
-	count   int
+	lines   *RingBuffer[LogLine]
 	version uint64
 	ready   bool
 	cancel  context.CancelFunc
@@ -62,7 +59,7 @@ func NewLogStreamer(ns *Namespace, settings LogStreamerSettings) *LogStreamer {
 	return &LogStreamer{
 		settings: settings,
 		client:   client,
-		lines:    make([]LogLine, settings.BufferSize),
+		lines:    NewRingBuffer[LogLine](settings.BufferSize),
 	}
 }
 
@@ -91,28 +88,13 @@ func (s *LogStreamer) Stop() {
 func (s *LogStreamer) Fetch(n int) []LogLine {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-
-	available := min(n, s.count)
-	if available == 0 {
-		return nil
-	}
-
-	result := make([]LogLine, available)
-	startIdx := (s.head - s.count + len(s.lines)) % len(s.lines)
-	offset := s.count - available
-
-	for i := range available {
-		idx := (startIdx + offset + i) % len(s.lines)
-		result[i] = s.lines[idx]
-	}
-
-	return result
+	return s.lines.FetchOldestFirst(n)
 }
 
 func (s *LogStreamer) Count() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.count
+	return s.lines.Len()
 }
 
 func (s *LogStreamer) Version() uint64 {
@@ -213,10 +195,6 @@ func (s *LogStreamer) addLine(line LogLine) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.lines[s.head] = line
-	s.head = (s.head + 1) % len(s.lines)
-	if s.count < len(s.lines) {
-		s.count++
-	}
+	s.lines.Add(line)
 	s.version++
 }

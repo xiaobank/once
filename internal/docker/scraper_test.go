@@ -277,16 +277,12 @@ func addSample(s *Scraper, appName string, sample Sample) {
 	data, ok := s.apps[appName]
 	if !ok {
 		data = &appData{
-			samples: make([]Sample, s.settings.BufferSize),
+			samples: NewRingBuffer[Sample](s.settings.BufferSize),
 		}
 		s.apps[appName] = data
 	}
 
-	data.samples[data.head] = sample
-	data.head = (data.head + 1) % len(data.samples)
-	if data.count < len(data.samples) {
-		data.count++
-	}
+	data.samples.Add(sample)
 }
 
 // scrapeUntil polls Scrape + Fetch until the expected CPU value appears.

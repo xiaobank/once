@@ -8,12 +8,12 @@ import (
 	"github.com/basecamp/once/internal/version"
 )
 
-type VersionCommand struct {
+type versionCommand struct {
 	cmd *cobra.Command
 }
 
-func NewVersionCommand() *VersionCommand {
-	v := &VersionCommand{}
+func newVersionCommand() *versionCommand {
+	v := &versionCommand{}
 	v.cmd = &cobra.Command{
 		Use:   "version",
 		Short: "Print the version",
@@ -23,8 +23,4 @@ func NewVersionCommand() *VersionCommand {
 		},
 	}
 	return v
-}
-
-func (v *VersionCommand) Command() *cobra.Command {
-	return v.cmd
 }

@@ -9,13 +9,13 @@ import (
 	"github.com/basecamp/once/internal/docker"
 )
 
-type DeployCommand struct {
+type deployCommand struct {
 	cmd  *cobra.Command
 	host string
 }
 
-func NewDeployCommand() *DeployCommand {
-	d := &DeployCommand{}
+func newDeployCommand() *deployCommand {
+	d := &deployCommand{}
 	d.cmd = &cobra.Command{
 		Use:   "deploy <image>",
 		Short: "Deploy an application",
@@ -26,14 +26,9 @@ func NewDeployCommand() *DeployCommand {
 	return d
 }
 
-func (d *DeployCommand) Command() *cobra.Command {
-	return d.cmd
-}
-
 // Private
 
-func (d *DeployCommand) run(ns *docker.Namespace, cmd *cobra.Command, args []string) error {
-	ctx := context.Background()
+func (d *deployCommand) run(ctx context.Context, ns *docker.Namespace, cmd *cobra.Command, args []string) error {
 	imageRef := args[0]
 
 	if err := ns.Setup(ctx); err != nil {

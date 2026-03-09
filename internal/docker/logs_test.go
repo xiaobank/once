@@ -56,7 +56,7 @@ func newTestLogStreamer(client logsClient, bufferSize int) *LogStreamer {
 	return &LogStreamer{
 		settings: LogStreamerSettings{BufferSize: bufferSize}.withDefaults(),
 		client:   client,
-		lines:    make([]LogLine, bufferSize),
+		lines:    NewRingBuffer[LogLine](bufferSize),
 	}
 }
 

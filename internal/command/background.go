@@ -2,24 +2,20 @@ package command
 
 import "github.com/spf13/cobra"
 
-type BackgroundCommand struct {
+type backgroundCommand struct {
 	cmd *cobra.Command
 }
 
-func NewBackgroundCommand() *BackgroundCommand {
-	b := &BackgroundCommand{}
+func newBackgroundCommand() *backgroundCommand {
+	b := &backgroundCommand{}
 	b.cmd = &cobra.Command{
 		Use:   "background",
 		Short: "Manage background tasks (automatic backups and updates)",
 	}
 
-	b.cmd.AddCommand(NewBackgroundInstallCommand().Command())
-	b.cmd.AddCommand(NewBackgroundUninstallCommand().Command())
-	b.cmd.AddCommand(NewBackgroundRunCommand().Command())
+	b.cmd.AddCommand(newBackgroundInstallCommand().cmd)
+	b.cmd.AddCommand(newBackgroundUninstallCommand().cmd)
+	b.cmd.AddCommand(newBackgroundRunCommand().cmd)
 
 	return b
-}
-
-func (b *BackgroundCommand) Command() *cobra.Command {
-	return b.cmd
 }

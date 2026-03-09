@@ -9,12 +9,12 @@ import (
 	"github.com/basecamp/once/internal/docker"
 )
 
-type StopCommand struct {
+type stopCommand struct {
 	cmd *cobra.Command
 }
 
-func NewStopCommand() *StopCommand {
-	s := &StopCommand{}
+func newStopCommand() *stopCommand {
+	s := &stopCommand{}
 	s.cmd = &cobra.Command{
 		Use:   "stop <app>",
 		Short: "Stop an application",
@@ -24,14 +24,9 @@ func NewStopCommand() *StopCommand {
 	return s
 }
 
-func (s *StopCommand) Command() *cobra.Command {
-	return s.cmd
-}
-
 // Private
 
-func (s *StopCommand) run(ns *docker.Namespace, cmd *cobra.Command, args []string) error {
-	ctx := context.Background()
+func (s *stopCommand) run(ctx context.Context, ns *docker.Namespace, cmd *cobra.Command, args []string) error {
 	appName := args[0]
 
 	err := withApplication(ns, appName, "stopping", func(app *docker.Application) error {

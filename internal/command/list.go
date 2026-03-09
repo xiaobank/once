@@ -1,6 +1,7 @@
 package command
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -8,12 +9,12 @@ import (
 	"github.com/basecamp/once/internal/docker"
 )
 
-type ListCommand struct {
+type listCommand struct {
 	cmd *cobra.Command
 }
 
-func NewListCommand() *ListCommand {
-	l := &ListCommand{}
+func newListCommand() *listCommand {
+	l := &listCommand{}
 	l.cmd = &cobra.Command{
 		Use:     "list",
 		Aliases: []string{"ls"},
@@ -23,13 +24,9 @@ func NewListCommand() *ListCommand {
 	return l
 }
 
-func (l *ListCommand) Command() *cobra.Command {
-	return l.cmd
-}
-
 // Private
 
-func (l *ListCommand) run(ns *docker.Namespace, cmd *cobra.Command, args []string) error {
+func (l *listCommand) run(_ context.Context, ns *docker.Namespace, cmd *cobra.Command, args []string) error {
 	for _, app := range ns.Applications() {
 		fmt.Println(app.Settings.Name)
 	}

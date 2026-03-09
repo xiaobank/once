@@ -6,12 +6,12 @@ import (
 	"github.com/basecamp/once/internal/version"
 )
 
-type UpdateCommand struct {
+type updateCommand struct {
 	cmd *cobra.Command
 }
 
-func NewUpdateCommand() *UpdateCommand {
-	u := &UpdateCommand{}
+func newUpdateCommand() *updateCommand {
+	u := &updateCommand{}
 	u.cmd = &cobra.Command{
 		Use:   "update",
 		Short: "Update once to the latest version",
@@ -21,8 +21,4 @@ func NewUpdateCommand() *UpdateCommand {
 		},
 	}
 	return u
-}
-
-func (u *UpdateCommand) Command() *cobra.Command {
-	return u.cmd
 }

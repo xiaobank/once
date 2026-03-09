@@ -10,12 +10,12 @@ import (
 	"github.com/basecamp/once/internal/logging"
 )
 
-type BackgroundRunCommand struct {
+type backgroundRunCommand struct {
 	cmd *cobra.Command
 }
 
-func NewBackgroundRunCommand() *BackgroundRunCommand {
-	b := &BackgroundRunCommand{}
+func newBackgroundRunCommand() *backgroundRunCommand {
+	b := &backgroundRunCommand{}
 	b.cmd = &cobra.Command{
 		Use:    "run",
 		Short:  "Run background tasks (automatic backups and updates)",
@@ -32,19 +32,13 @@ func NewBackgroundRunCommand() *BackgroundRunCommand {
 	return b
 }
 
-func (b *BackgroundRunCommand) Command() *cobra.Command {
-	return b.cmd
-}
-
 // Private
 
-func (b *BackgroundRunCommand) run(cmd *cobra.Command, args []string) error {
+func (b *backgroundRunCommand) run(cmd *cobra.Command, args []string) error {
 	ctx, stop := signal.NotifyContext(cmd.Context(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
 
-	namespace, _ := cmd.Root().PersistentFlags().GetString("namespace")
-
-	runner := background.NewRunner(namespace)
+	runner := background.NewRunner(namespaceFlag(cmd))
 
 	return runner.Run(ctx)
 }

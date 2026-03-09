@@ -10,12 +10,12 @@ import (
 	"github.com/basecamp/once/internal/docker"
 )
 
-type BackupCommand struct {
+type backupCommand struct {
 	cmd *cobra.Command
 }
 
-func NewBackupCommand() *BackupCommand {
-	b := &BackupCommand{}
+func newBackupCommand() *backupCommand {
+	b := &backupCommand{}
 	b.cmd = &cobra.Command{
 		Use:   "backup <app> <filename>",
 		Short: "Backup an application to a file",
@@ -25,14 +25,9 @@ func NewBackupCommand() *BackupCommand {
 	return b
 }
 
-func (b *BackupCommand) Command() *cobra.Command {
-	return b.cmd
-}
-
 // Private
 
-func (b *BackupCommand) run(ns *docker.Namespace, cmd *cobra.Command, args []string) error {
-	ctx := context.Background()
+func (b *backupCommand) run(ctx context.Context, ns *docker.Namespace, cmd *cobra.Command, args []string) error {
 	appName := args[0]
 	filename := args[1]
 

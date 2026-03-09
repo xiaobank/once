@@ -10,12 +10,12 @@ import (
 	"github.com/basecamp/once/internal/service"
 )
 
-type BackgroundUninstallCommand struct {
+type backgroundUninstallCommand struct {
 	cmd *cobra.Command
 }
 
-func NewBackgroundUninstallCommand() *BackgroundUninstallCommand {
-	b := &BackgroundUninstallCommand{}
+func newBackgroundUninstallCommand() *backgroundUninstallCommand {
+	b := &backgroundUninstallCommand{}
 	b.cmd = &cobra.Command{
 		Use:   "uninstall",
 		Short: "Uninstall the background tasks system service",
@@ -25,20 +25,15 @@ func NewBackgroundUninstallCommand() *BackgroundUninstallCommand {
 	return b
 }
 
-func (b *BackgroundUninstallCommand) Command() *cobra.Command {
-	return b.cmd
-}
-
 // Private
 
-func (b *BackgroundUninstallCommand) run(cmd *cobra.Command, args []string) error {
+func (b *backgroundUninstallCommand) run(cmd *cobra.Command, args []string) error {
 	if os.Getuid() != 0 {
 		return fmt.Errorf("must be run as root")
 	}
 
 	ctx := context.Background()
-
-	namespace, _ := cmd.Root().PersistentFlags().GetString("namespace")
+	namespace := namespaceFlag(cmd)
 
 	svc, err := service.New()
 	if err != nil {

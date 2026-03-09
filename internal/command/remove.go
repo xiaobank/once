@@ -9,13 +9,13 @@ import (
 	"github.com/basecamp/once/internal/docker"
 )
 
-type RemoveCommand struct {
+type removeCommand struct {
 	cmd        *cobra.Command
 	removeData bool
 }
 
-func NewRemoveCommand() *RemoveCommand {
-	r := &RemoveCommand{}
+func newRemoveCommand() *removeCommand {
+	r := &removeCommand{}
 	r.cmd = &cobra.Command{
 		Use:     "remove <app>",
 		Aliases: []string{"rm"},
@@ -27,14 +27,9 @@ func NewRemoveCommand() *RemoveCommand {
 	return r
 }
 
-func (r *RemoveCommand) Command() *cobra.Command {
-	return r.cmd
-}
-
 // Private
 
-func (r *RemoveCommand) run(ns *docker.Namespace, cmd *cobra.Command, args []string) error {
-	ctx := context.Background()
+func (r *removeCommand) run(ctx context.Context, ns *docker.Namespace, cmd *cobra.Command, args []string) error {
 	appName := args[0]
 
 	err := withApplication(ns, appName, "removing", func(app *docker.Application) error {

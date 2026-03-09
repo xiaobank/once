@@ -57,9 +57,7 @@ type streamInfo struct {
 }
 
 type appData struct {
-	samples []Sample
-	head    int
-	count   int
+	samples *RingBuffer[Sample]
 	latest  *liveStats
 }
 
@@ -90,14 +88,7 @@ func (s *Scraper) Fetch(appName string, n int) []Sample {
 		return nil
 	}
 
-	available := min(n, data.count)
-	result := make([]Sample, available)
-	for i := range available {
-		idx := (data.head - 1 - i + len(data.samples)) % len(data.samples)
-		result[i] = data.samples[idx]
-	}
-
-	return result
+	return data.samples.FetchNewestFirst(n)
 }
 
 func (s *Scraper) LastError() error {
@@ -132,11 +123,7 @@ func (s *Scraper) Scrape(ctx context.Context) {
 			data.latest = nil
 		}
 
-		data.samples[data.head] = sample
-		data.head = (data.head + 1) % len(data.samples)
-		if data.count < len(data.samples) {
-			data.count++
-		}
+		data.samples.Add(sample)
 	}
 	s.mu.Unlock()
 
@@ -185,7 +172,7 @@ func (s *Scraper) updateStreams(ctx context.Context, containers map[string]strin
 
 		if s.apps[appName] == nil {
 			s.apps[appName] = &appData{
-				samples: make([]Sample, s.settings.BufferSize),
+				samples: NewRingBuffer[Sample](s.settings.BufferSize),
 			}
 		}
 
