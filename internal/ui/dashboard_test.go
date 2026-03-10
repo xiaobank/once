@@ -188,7 +188,7 @@ func TestDashboard_ToggleDetailsEmptyState(t *testing.T) {
 	d, _ = updateDashboard(d, tea.WindowSizeMsg{Width: 80, Height: 24})
 
 	// Should not panic
-	d, _ = updateDashboard(d, keyPressMsg("d"))
+	_, _ = updateDashboard(d, keyPressMsg("d"))
 	assert.True(t, dashboardShowDetails) // unchanged — guarded by len(m.apps) > 0
 }
 
