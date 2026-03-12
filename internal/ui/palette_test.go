@@ -210,6 +210,7 @@ func TestNewPaletteWithLightTheme(t *testing.T) {
 }
 
 func TestNewPaletteNoDetection(t *testing.T) {
+	t.Setenv("COLORTERM", "truecolor")
 	d := DetectedColors{} // nothing detected
 	p := NewPalette(d)
 
