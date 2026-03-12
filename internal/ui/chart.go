@@ -2,8 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"image/color"
-	"math"
 	"strings"
 	"time"
 
@@ -166,9 +164,9 @@ func (c Chart) View(data []float64, width, height int, scale ChartScale) string 
 			label = labelStyle.Render("")
 		}
 
-		// Gradient from teal (bottom) to orange (top)
+		// Gradient from green (bottom) to orange (top)
 		t := float64(chartRows-1-row) / float64(max(chartRows-1, 1))
-		rowColor := lerpColor(chartGradientBottom, chartGradientTop, t)
+		rowColor := Colors.Gradient(t)
 		chartRow := lipgloss.NewStyle().Foreground(rowColor).Render(sb.String())
 		lines = append(lines, left+label+" "+chartRow+right)
 	}
@@ -214,18 +212,15 @@ func SlidingSum(data []float64, window int) []float64 {
 
 // Helpers
 
-var (
-	chartGradientBottom = lipgloss.Color("#2db89a") // teal
-	chartGradientTop    = lipgloss.Color("#f0a050") // orange
-)
-
-func lerpColor(a, b color.Color, t float64) color.Color {
-	ar, ag, ab, _ := a.RGBA()
-	br, bg, bb, _ := b.RGBA()
-	lerp := func(x, y uint32) uint8 {
-		return uint8(math.Round((float64(x) + t*(float64(y)-float64(x))) / 256))
+func barColor(pct float64) HealthState {
+	switch {
+	case pct > 85:
+		return healthError
+	case pct >= 60:
+		return healthWarning
+	default:
+		return healthNormal
 	}
-	return color.RGBA{R: lerp(ar, br), G: lerp(ag, bg), B: lerp(ab, bb), A: 255}
 }
 
 func maxValue(data []float64) float64 {
@@ -248,15 +243,3 @@ func peakValue(data []float64, window int) float64 {
 	start := max(0, len(data)-window)
 	return maxValue(data[start:])
 }
-
-func barColor(pct float64) color.Color {
-	switch {
-	case pct > 85:
-		return Colors.Error
-	case pct >= 60:
-		return chartGradientTop
-	default:
-		return chartGradientBottom
-	}
-}
-

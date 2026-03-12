@@ -121,7 +121,7 @@ func (h DashboardHeader) renderDiskGauge(width int) string {
 	pct := float64(sample.DiskUsed) / float64(sample.DiskTotal) * 100
 
 	barWidth := max(innerWidth-4, 0) // left indent(2) + right margin(2)
-	bar := "  " + renderBar(pct, 0, 100, barColor(pct), barWidth)
+	bar := "  " + renderBar(pct, 0, 100, barColor(pct).Color(), barWidth)
 	pctLine := formatValueLine(fmt.Sprintf("  %.0f%% used", pct), formatDiskSize(sample.DiskTotal)+" ", innerWidth)
 	detailLine := fmt.Sprintf("  %s used, %s free", formatDiskSize(sample.DiskUsed), formatDiskSize(sample.DiskFree))
 

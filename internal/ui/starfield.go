@@ -18,9 +18,14 @@ const (
 )
 
 var (
-	starBrightStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFFFF"))
-	starDimStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#888888"))
+	starBrightStyle = lipgloss.NewStyle().Foreground(Colors.White)
+	starDimStyle    = lipgloss.NewStyle().Foreground(Colors.LightText)
 )
+
+func rebuildStarfieldStyles() {
+	starBrightStyle = lipgloss.NewStyle().Foreground(Colors.White)
+	starDimStyle = lipgloss.NewStyle().Foreground(Colors.LightText)
+}
 
 type starfieldTickMsg struct{}
 

@@ -17,9 +17,16 @@ const (
 )
 
 var (
-	logoBaseStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#666666"))
-	logoShineStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFD700"))
+	logoBaseStyle  = lipgloss.NewStyle().Foreground(Colors.LightText)
+	logoShineStyle = lipgloss.NewStyle().Foreground(Colors.FocusOrange)
+)
 
+func rebuildLogoStyles() {
+	logoBaseStyle = lipgloss.NewStyle().Foreground(Colors.LightText)
+	logoShineStyle = lipgloss.NewStyle().Foreground(Colors.FocusOrange)
+}
+
+var (
 	logoArt = []string{
 		`  ██████╗ ███╗   ██╗ ██████╗███████╗`,
 		` ██╔═══██╗████╗  ██║██╔════╝██╔════╝`,

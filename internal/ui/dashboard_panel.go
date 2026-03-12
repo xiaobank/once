@@ -279,22 +279,20 @@ func renderStateInfo(app *docker.Application, toggling bool) string {
 	var statusColor color.Color
 	if toggling && app.Running {
 		status = "stopping..."
-		statusColor = Colors.Border
+		statusColor = Colors.LightText
 	} else if toggling {
 		status = "starting..."
-		statusColor = Colors.Border
+		statusColor = Colors.LightText
 	} else if app.Running {
 		status = "running"
-		statusColor = chartGradientBottom
+		statusColor = Colors.Success
 	} else {
 		status = "stopped"
-		statusColor = chartGradientTop
+		statusColor = Colors.LightText
 	}
 
 	stateStyle := lipgloss.NewStyle().Foreground(statusColor)
-	stateDisplay := stateStyle.Render(status)
-
-	return stateDisplay
+	return stateStyle.Render(status)
 }
 
 func renderBar(current, peak, scaleMax float64, fillColor color.Color, width int) string {
@@ -309,7 +307,7 @@ func renderBar(current, peak, scaleMax float64, fillColor color.Color, width int
 
 	filledStyle := lipgloss.NewStyle().Foreground(fillColor)
 	emptyStyle := lipgloss.NewStyle().Foreground(Colors.Border)
-	peakStyle := lipgloss.NewStyle().Foreground(chartGradientTop)
+	peakStyle := lipgloss.NewStyle().Foreground(Colors.FocusOrange)
 
 	// Build per-character styles
 	styles := make([]lipgloss.Style, width)

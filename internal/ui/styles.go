@@ -5,44 +5,13 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
-	"charm.land/lipgloss/v2/compat"
 	"github.com/charmbracelet/x/ansi"
 )
 
-type colors struct {
-	Primary    color.Color
-	Secondary  color.Color
-	Background color.Color
-	Text       color.Color
-	TextDark   color.Color
-	Focused    color.Color
-	Border     color.Color
-	Success    color.Color
-	Warning    color.Color
-	Error      color.Color
-	Info       color.Color
-	Muted      color.Color
-	PanelBg    color.Color
-}
-
-var Colors = colors{
-	Primary:    lipgloss.Color("#7AA2F7"),
-	Secondary:  lipgloss.Color("#9f3"),
-	Background: lipgloss.Color("#000000"),
-	Text:       lipgloss.Color("#FFFFFF"),
-	TextDark:   lipgloss.Color("#000000"),
-	Focused:    lipgloss.Color("#FFA500"),
-	Border:     lipgloss.Color("#6272a4"),
-	Success:    lipgloss.Color("#50fa7b"),
-	Warning:    lipgloss.Color("#f1fa8c"),
-	Error:      lipgloss.Color("#ff5555"),
-	Info:       lipgloss.Color("#8be9fd"),
-	Muted:      lipgloss.Color("#bd93f9"),
-	PanelBg: compat.AdaptiveColor{
-		Light: lipgloss.Color("#e8e8e8"),
-		Dark:  lipgloss.Color("#1a1b26"),
-	},
-}
+// Colors is the active palette. It is initialized with a default palette
+// at package init and may be replaced by ApplyPalette after terminal
+// color detection.
+var Colors = DefaultPalette()
 
 type styles struct {
 	Title         lipgloss.Style
@@ -52,26 +21,41 @@ type styles struct {
 	ButtonPrimary lipgloss.Style
 }
 
-var Styles = styles{
-	Title: lipgloss.NewStyle().
-		Foreground(Colors.Primary).
-		Bold(true),
-	Label: lipgloss.NewStyle().
-		Bold(true),
-	Input: lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(Colors.Border).
-		Padding(0, 1),
-	Button: lipgloss.NewStyle().
-		Padding(0, 2).
-		MarginRight(1).
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(Colors.Border),
-	ButtonPrimary: lipgloss.NewStyle().
-		Padding(0, 2).
-		MarginRight(1).
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(Colors.Primary),
+var Styles = buildStyles()
+
+var borderStyle = lipgloss.NewStyle().Foreground(Colors.Border)
+
+// rebuildStyles reconstructs all package-level style variables from the
+// current Colors palette. Called by ApplyPalette.
+func rebuildStyles() {
+	Styles = buildStyles()
+	borderStyle = lipgloss.NewStyle().Foreground(Colors.Border)
+	rebuildStarfieldStyles()
+	rebuildLogoStyles()
+}
+
+func buildStyles() styles {
+	return styles{
+		Title: lipgloss.NewStyle().
+			Foreground(Colors.Primary).
+			Bold(true),
+		Label: lipgloss.NewStyle().
+			Bold(true),
+		Input: lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(Colors.Border).
+			Padding(0, 1),
+		Button: lipgloss.NewStyle().
+			Padding(0, 2).
+			MarginRight(1).
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(Colors.Border),
+		ButtonPrimary: lipgloss.NewStyle().
+			Padding(0, 2).
+			MarginRight(1).
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(Colors.Primary),
+	}
 }
 
 func (s styles) Focus(base lipgloss.Style, focused bool) lipgloss.Style {
@@ -163,8 +147,6 @@ func WithBackground(bg color.Color, content string) string {
 
 // Box drawing helpers for bordered panels used across chart, metric card,
 // visits card, and disk gauge components.
-
-var borderStyle = lipgloss.NewStyle().Foreground(Colors.Border)
 
 func boxTop(title string, innerWidth int) string {
 	titleLen := lipgloss.Width(title)

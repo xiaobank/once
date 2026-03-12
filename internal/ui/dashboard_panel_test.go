@@ -112,7 +112,7 @@ func TestRenderStateInfo(t *testing.T) {
 }
 
 func TestRenderBar(t *testing.T) {
-	bar := renderBar(50, 0, 100, chartGradientBottom, 10)
+	bar := renderBar(50, 0, 100, Colors.Success, 10)
 	assert.NotEmpty(t, bar)
 	// Bar contains braille characters
 	assert.Contains(t, bar, "⢾")
@@ -120,7 +120,7 @@ func TestRenderBar(t *testing.T) {
 }
 
 func TestRenderBarZeroWidth(t *testing.T) {
-	assert.Empty(t, renderBar(50, 0, 100, chartGradientBottom, 0))
+	assert.Empty(t, renderBar(50, 0, 100, Colors.Success, 0))
 }
 
 // Helpers

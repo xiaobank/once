@@ -17,14 +17,7 @@ const (
 )
 
 func (h HealthState) Color() color.Color {
-	switch h {
-	case healthWarning:
-		return chartGradientTop
-	case healthError:
-		return Colors.Error
-	default:
-		return chartGradientBottom
-	}
+	return Colors.HealthColor(h)
 }
 
 type MetricThresholds struct {
@@ -133,7 +126,8 @@ func (c MetricCard) renderBarLine(inner int) (barStr string, current, peak float
 	if scaleMax == 0 {
 		scaleMax = 1
 	}
-	barStr = renderBar(current, peak, scaleMax, c.thresholds.Color(c.healthPct), max(inner-2, 0))
+	health := c.thresholds.Health(c.healthPct)
+	barStr = renderBar(current, peak, scaleMax, health.Color(), max(inner-2, 0))
 	return
 }
 
@@ -162,4 +156,3 @@ func (c MetricCard) trafficLines(inner int) (barStr, valueLine, detailLine strin
 	}
 	return
 }
-
