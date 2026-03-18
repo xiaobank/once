@@ -1,8 +1,10 @@
 package ui
 
 import (
+	"bufio"
 	"bytes"
 	"io"
+	"strings"
 	"testing"
 	"time"
 
@@ -54,95 +56,69 @@ func TestParseRGBInvalid(t *testing.T) {
 	assert.False(t, ok)
 }
 
-func TestParseOSCForeground(t *testing.T) {
-	ch := make(chan colorResult, 1)
-	parseOSCColor([]byte("\x1b]10;rgb:c0c0/caca/f5f5\x07"), ch)
-	require.Len(t, ch, 1)
-	r := <-ch
-	assert.Equal(t, sampleForeground, r.index)
-	assert.InDelta(t, 0.753, r.color.R, 0.01)
+func newTestDetector(data string) *detector {
+	return &detector{reader: bufio.NewReader(strings.NewReader(data))}
 }
 
-func TestParseOSCBackground(t *testing.T) {
-	ch := make(chan colorResult, 1)
-	parseOSCColor([]byte("\x1b]11;rgb:1a1a/1b1b/2626\x07"), ch)
-	require.Len(t, ch, 1)
-	r := <-ch
-	assert.Equal(t, sampleBackground, r.index)
-	assert.InDelta(t, 0.102, r.color.R, 0.01)
-}
-
-func TestParseOSCANSIColor(t *testing.T) {
-	ch := make(chan colorResult, 1)
-	parseOSCColor([]byte("\x1b]4;4;rgb:7a7a/a2a2/f7f7\x07"), ch)
-	require.Len(t, ch, 1)
-	r := <-ch
-	assert.Equal(t, 4, r.index) // blue
-	assert.InDelta(t, 0.478, r.color.R, 0.01)
-}
-
-func TestParseOSCWithST(t *testing.T) {
-	ch := make(chan colorResult, 1)
-	parseOSCColor([]byte("\x1b]10;rgb:ffff/ffff/ffff\x1b\\"), ch)
-	require.Len(t, ch, 1)
-	r := <-ch
-	assert.Equal(t, sampleForeground, r.index)
-	assert.InDelta(t, 1.0, r.color.R, 0.001)
-}
-
-func TestProcessBufferDA1(t *testing.T) {
-	ch := make(chan colorResult, sampleCount)
-
-	// Buffer with one OSC response followed by DA1
-	buf := []byte("\x1b]10;rgb:ffff/ffff/ffff\x07\x1b[?62;c")
-	remainder, da1 := processBuffer(buf, ch)
-	assert.True(t, da1)
-	assert.Nil(t, remainder)
-	assert.Len(t, ch, 1)
-}
-
-func TestProcessBufferNoDA1(t *testing.T) {
-	ch := make(chan colorResult, sampleCount)
-
-	buf := []byte("\x1b]10;rgb:ffff/ffff/ffff\x07")
-	remainder, da1 := processBuffer(buf, ch)
+func TestReadForegroundColor(t *testing.T) {
+	d := newTestDetector("\x1b]10;rgb:c0c0/caca/f5f5\x07")
+	da1, err := d.readNext()
+	require.NoError(t, err)
 	assert.False(t, da1)
-	assert.Empty(t, remainder)
-	assert.Len(t, ch, 1)
+	assert.True(t, d.colors.Detected[sampleForeground])
+	assert.InDelta(t, 0.753, d.colors.Colors[sampleForeground].R, 0.01)
 }
 
-func TestProcessBufferMultipleResponses(t *testing.T) {
-	ch := make(chan colorResult, sampleCount)
+func TestReadBackgroundColor(t *testing.T) {
+	d := newTestDetector("\x1b]11;rgb:1a1a/1b1b/2626\x07")
+	da1, err := d.readNext()
+	require.NoError(t, err)
+	assert.False(t, da1)
+	assert.True(t, d.colors.Detected[sampleBackground])
+	assert.InDelta(t, 0.102, d.colors.Colors[sampleBackground].R, 0.01)
+}
 
-	buf := []byte(
+func TestReadANSIColor(t *testing.T) {
+	d := newTestDetector("\x1b]4;4;rgb:7a7a/a2a2/f7f7\x07")
+	da1, err := d.readNext()
+	require.NoError(t, err)
+	assert.False(t, da1)
+	assert.True(t, d.colors.Detected[4]) // blue
+	assert.InDelta(t, 0.478, d.colors.Colors[4].R, 0.01)
+}
+
+func TestReadColorWithSTTerminator(t *testing.T) {
+	d := newTestDetector("\x1b]10;rgb:ffff/ffff/ffff\x1b\\")
+	da1, err := d.readNext()
+	require.NoError(t, err)
+	assert.False(t, da1)
+	assert.True(t, d.colors.Detected[sampleForeground])
+	assert.InDelta(t, 1.0, d.colors.Colors[sampleForeground].R, 0.001)
+}
+
+func TestReadDA1(t *testing.T) {
+	d := newTestDetector("\x1b[?62;c")
+	da1, err := d.readNext()
+	require.NoError(t, err)
+	assert.True(t, da1)
+}
+
+func TestReadMultipleResponses(t *testing.T) {
+	d := newTestDetector(
 		"\x1b]10;rgb:c0c0/caca/f5f5\x07" +
 			"\x1b]11;rgb:1a1a/1b1b/2626\x07" +
 			"\x1b]4;2;rgb:5050/fafa/7b7b\x07",
 	)
-	remainder, da1 := processBuffer(buf, ch)
-	assert.False(t, da1)
-	assert.Empty(t, remainder)
-	assert.Len(t, ch, 3)
 
-	r := <-ch
-	assert.Equal(t, sampleForeground, r.index)
-	r = <-ch
-	assert.Equal(t, sampleBackground, r.index)
-	r = <-ch
-	assert.Equal(t, 2, r.index)
-}
+	for range 3 {
+		da1, err := d.readNext()
+		require.NoError(t, err)
+		assert.False(t, da1)
+	}
 
-func TestFindDA1(t *testing.T) {
-	assert.Equal(t, 5, findDA1([]byte("hello\x1b[?62;22c")))
-	assert.Equal(t, -1, findDA1([]byte("hello\x1b[?62;22m"))) // wrong final byte
-	assert.Equal(t, 0, findDA1([]byte("\x1b[c")))
-	assert.Equal(t, -1, findDA1([]byte("no da1 here")))
-}
-
-func TestFindOSCEnd(t *testing.T) {
-	assert.Equal(t, 5, findOSCEnd([]byte("test\x07rest")))
-	assert.Equal(t, 6, findOSCEnd([]byte("test\x1b\\rest")))
-	assert.Equal(t, -1, findOSCEnd([]byte("incomplete")))
+	assert.True(t, d.colors.Detected[sampleForeground])
+	assert.True(t, d.colors.Detected[sampleBackground])
+	assert.True(t, d.colors.Detected[2])
 }
 
 func TestDetectedColorsDefaultEmpty(t *testing.T) {
@@ -182,7 +158,7 @@ func TestDetectFromDarkTheme(t *testing.T) {
 		"\x1b[?62;22c" // DA1 sentinel
 
 	mock := newMockTTY([]byte(response))
-	d := detectFrom(mock, time.Second)
+	d := detectFrom(mock)
 
 	assert.True(t, d.Detected[sampleForeground])
 	assert.True(t, d.Detected[sampleBackground])
@@ -203,7 +179,7 @@ func TestDetectFromLightTheme(t *testing.T) {
 		"\x1b[?62;c" // DA1
 
 	mock := newMockTTY([]byte(response))
-	d := detectFrom(mock, time.Second)
+	d := detectFrom(mock)
 
 	assert.True(t, d.Detected[sampleForeground])
 	assert.True(t, d.Detected[sampleBackground])
@@ -225,7 +201,7 @@ func TestDetectFromPartialResponse(t *testing.T) {
 		"\x1b[?62;c"
 
 	mock := newMockTTY([]byte(response))
-	d := detectFrom(mock, time.Second)
+	d := detectFrom(mock)
 
 	assert.True(t, d.Detected[sampleBackground])
 	assert.False(t, d.Detected[sampleForeground])
@@ -236,7 +212,7 @@ func TestDetectFromNoOSCSupport(t *testing.T) {
 	// Terminal that doesn't support OSC queries — reader returns EOF
 	// immediately (no response data at all).
 	mock := newMockTTY([]byte{})
-	d := detectFrom(mock, 50*time.Millisecond)
+	d := detectFrom(mock)
 
 	for i := range sampleCount {
 		assert.False(t, d.Detected[i])
@@ -251,7 +227,8 @@ func TestDetectFromTimeout(t *testing.T) {
 	rw := &mockTTY{Reader: pr, Writer: io.Discard}
 
 	start := time.Now()
-	d := detectFrom(rw, 50*time.Millisecond)
+	time.AfterFunc(50*time.Millisecond, func() { pr.Close() })
+	d := detectFrom(rw)
 	elapsed := time.Since(start)
 
 	for i := range sampleCount {
