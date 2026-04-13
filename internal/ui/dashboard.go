@@ -352,6 +352,10 @@ func (m *Dashboard) computeScales() DashboardScales {
 }
 
 func (m *Dashboard) scrollToSelection() {
+	if len(m.panels) == 0 {
+		return
+	}
+
 	panelTop := 0
 	for i := range m.selectedIndex {
 		panelTop += m.panels[i].Height(dashboardShowDetails)
