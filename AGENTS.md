@@ -70,6 +70,7 @@ go test -v -run TestName ./internal/...
 
 ## Personal Notes
 
-- I'm using this fork primarily to learn how kamal-proxy integration works and
-  to experiment with alternative storage backends. The upstream project is the
-  source of truth; keep this fork rebased on main regularly.
+- I'm using this fork primarily to learn how kamal-proxy integration works.
+- Useful reference: the proxy container is always started before app containers,
+  so any proxy configuration changes require a proxy restart before apps will
+  pick them up.
