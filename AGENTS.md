@@ -70,7 +70,5 @@ go test -v -run TestName ./internal/...
 
 ## Personal Notes
 
-- I'm running this on a Hetzner VPS (Ubuntu 22.04). Integration tests require
-  the Docker socket to be accessible without sudo (`sudo usermod -aG docker $USER`).
-- The default namespace `"once"` works fine for a single-server personal setup;
-  no need to change it.
+- I'm using this fork primarily to learn how kamal-proxy integration works.
+- Testing locally against a Raspberry Pi 5 running Docker — keep an eye on ARM64 compatibility.
